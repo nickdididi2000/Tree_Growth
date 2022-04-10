@@ -11,6 +11,7 @@ require(ggplot2)
 require(tidyverse)
 require(spaMM)
 require(DHARMa)
+set.seed(452)
 ```
 
 ```{r read-data}
