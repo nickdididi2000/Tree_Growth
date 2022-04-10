@@ -1,0 +1,99 @@
+---
+title: "Bio Project"
+output: html_document
+date: '2022-04-09'
+---
+
+```{r libraries}
+require(readxl)
+require(dplyr)
+require(ggplot2)
+require(tidyverse)
+require(spaMM)
+library(DHARMa)
+```
+
+```{r read-data}
+pin_growth <- read_excel("PIN ONLY DATA FOR SPATIAL ANALYSIS (GROWTH).xlsx")
+```
+
+# Initial Investigations
+
+```{r plot-1}
+pin_growth %>%
+    ggplot(aes(x = X, y = Y, color = DBH1995)) + 
+    geom_point() + 
+    theme_classic()
+```
+
+```{r plot-2}
+pin_growth %>% 
+  ggplot(aes(x = GROWTH)) +
+  geom_density()
+```
+
+```{r plot-3}
+pin_growth %>% 
+  ggplot(aes(x = GROWTH)) +
+  geom_dotplot()
+```
+
+```{r}
+#Check for Outlier 
+pin_growth %>% ggplot(aes(x = GROWTH)) +
+  geom_boxplot()
+
+pin_growth2 <- pin_growth %>% 
+  filter(GROWTH > -10)
+```
+
+```{r plot-4}
+pin_growth2 %>% 
+  ggplot(aes(x = GROWTH)) +
+  geom_density()
+```
+
+
+```{r}
+model <- fitme(GROWTH ~ ELEVA + DBH1995 + Matern(1 | X + Y), data = pin_growth2, family = "gaussian")
+model_gauss <- fitme(GROWTH ~ ELEVA + DBH1995 + Matern(1 | X + Y), data = pin_growth2, fixed = list(nu = 0.5))
+
+model_2 <- fitme(GROWTH ~ LOG(N) + DBH1995 + Matern(1 | X + Y), data = pin_growth2, fixed = list(nu = 0.5))
+
+```
+
+```{r}
+summary(model)
+
+spamm.map <- cbind(pin_growth2, spamm_pred = predict(model)) %>%
+    mutate(spamm_resid = GROWTH - spamm_pred)
+
+
+spamm.map %>%
+    ggplot(aes(fill = exp(spamm_pred))) + geom_sf() + scale_fill_gradient(low = "lightgrey",
+    high = "red") + theme_classic()
+```
+
+```{r}
+spamm.map %>% 
+  ggplot(aes(x = X, y = Y, color = spamm_resid)) +
+  geom_point() + 
+  theme_classic() +
+  scale_color_gradient2(low = "blue", mid = "lightgrey", high = "red")
+```
+
+```{r}
+sqrt(mean(spamm.map$spamm_resid^2))
+```
+
+
+```{r}
+simulation <- simulateResiduals(model)
+
+plot(simulation)
+```
+
+
+
+
+
