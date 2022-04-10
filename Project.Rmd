@@ -10,6 +10,7 @@ require(dplyr)
 require(ggplot2)
 require(tidyverse)
 require(spaMM)
+require(DHARMa)
 ```
 
 ```{r read-data}
@@ -49,16 +50,25 @@ bur2 %>%
   geom_density()
 ```
 
-
 ```{r}
 model <- fitme(GROWTH ~ ELEVA + DBH95 + Matern(1 | X + Y), data = bur2, fixed = list(nu = 0.5))
+
+summary(model)
 ```
 
 ```{r}
-summary(model)
+model2 <- fitme(GROWTH ~ ELEVA + DBH95 + Matern(1 | X + Y), data = bur2, family = "gaussian")
 
+summary(model2)
+```
+
+
+```{r}
 model.map <- cbind(bur2, spamm_pred = predict(model)) %>%
     mutate(spamm_resid = GROWTH - spamm_pred)
+
+model.map2 <- cbind(bur2, spamm_pred2 = predict(model2)) %>%
+    mutate(spamm_resid2 = GROWTH - spamm_pred2)
 ```
 
 ```{r}
@@ -67,6 +77,37 @@ model.map %>%
   geom_point() + 
   theme_classic() +
   scale_color_gradient2(low = "blue", mid = "lightgrey", high = "red")
+
+model.map2 %>% 
+  ggplot(aes(x = X, y = Y, color = spamm_resid2)) +
+  geom_point() + 
+  theme_classic() +
+  scale_color_gradient2(low = "blue", mid = "lightgrey", high = "red")
 ```
+
+```{r}
+## Compare RMSE
+sqrt(mean(model.map$spamm_resid^2))
+
+sqrt(mean(model.map2$spamm_resid2^2))
+```
+
+```{r}
+simulation <- simulateResiduals(model2)
+
+plotQQunif(simulation)
+
+plotResiduals(simulation, form = bur2$ELEVA)
+
+plotResiduals(simulation, form = bur2$DBH95)
+```
+
+```{r}
+# Extreme Residuals (higher or lower than what we'd expect)
+model.map2 %>%
+    filter(abs(scale(spamm_resid2)) > 3)
+```
+
+
 
 
