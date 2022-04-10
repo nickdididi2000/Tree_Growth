@@ -1,0 +1,72 @@
+---
+title: "Bio Project"
+output: html_document
+date: '2022-04-09'
+---
+
+```{r libraries}
+require(readxl)
+require(dplyr)
+require(ggplot2)
+require(tidyverse)
+require(spaMM)
+```
+
+```{r read-data}
+bur <- read_excel("BUR ONLY DATA FOR SPATIAL ANALYSIS (GROWTH).xlsx")
+```
+
+# Initial Investigations
+
+```{r plot-1}
+bur %>%
+    ggplot(aes(x = X, y = Y, color = DBH95)) + 
+    geom_point() + 
+    theme_classic()
+```
+
+```{r plot-2}
+bur %>% 
+  ggplot(aes(x = GROWTH)) +
+  geom_density()
+```
+
+```{r plot-3}
+bur %>% 
+  ggplot(aes(x = GROWTH)) +
+  geom_dotplot()
+```
+
+```{r}
+# Removed 1 extreme outlier
+bur2 <- bur %>% 
+  filter(GROWTH > -40)
+```
+
+```{r plot-4}
+bur2 %>% 
+  ggplot(aes(x = GROWTH)) +
+  geom_density()
+```
+
+
+```{r}
+model <- fitme(GROWTH ~ ELEVA + DBH95 + Matern(1 | X + Y), data = bur2, fixed = list(nu = 0.5))
+```
+
+```{r}
+summary(model)
+
+model.map <- cbind(bur2, spamm_pred = predict(model)) %>%
+    mutate(spamm_resid = GROWTH - spamm_pred)
+```
+
+```{r}
+model.map %>% 
+  ggplot(aes(x = X, y = Y, color = spamm_resid)) +
+  geom_point() + 
+  theme_classic() +
+  scale_color_gradient2(low = "blue", mid = "lightgrey", high = "red")
+```
+
+
