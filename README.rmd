@@ -1,0 +1,214 @@
+---
+title: "Bur & Pin Growth Write Up"
+output: html_document
+date: '2022-04-14'
+---
+
+```{r include = FALSE}
+require(readxl)
+require(dplyr)
+require(ggplot2)
+require(tidyverse)
+require(spaMM)
+require(DHARMa)
+require(gridExtra)
+set.seed(452)
+
+bur <- read_excel("BUR ONLY DATA FOR SPATIAL ANALYSIS (GROWTH).xlsx")
+pin <- read_excel("PIN ONLY DATA FOR SPATIAL ANALYSIS (GROWTH).xlsx")
+```
+
+## Data Context & Research Question {-}
+
+We will examine two separate tree growth data sets with the same variables. Both data sets, bur and pin, contain a tree id number, location data, the initial diameter of the tree (measured at breast height), logged soil nitrogen levels, the elevation of the tree, and its growth over 25 years. We will investigate whether or not the elevation of a tree will affect its growth while taking into account different tree diameters. We will also run a similar analysis and see whether or not the logged soil nitrogen levels affect a tree's growth while taking each tree's starting diameter. Both analysis' will be run for the bur and pin dataset resulting in four total models. 
+
+## Bur Tree Maps {-}
+
+```{r}
+bur %>%
+    ggplot(aes(x = X, y = Y, color = `ELEVA`)) + 
+    geom_point() + 
+    theme_classic() +
+    labs(title = "Bur Trees Map with Elevation", color = "Elevation")
+
+bur %>%
+    ggplot(aes(x = X, y = Y, color = `LOG(N)`)) + 
+    geom_point() + 
+    theme_classic() +
+    labs(title = "Bur Trees Map with Logged Soil Nitrogen Levels", color = "Logged Soil Nitrogen")
+```
+
+Our initial investigations show that towards the left side of the visualization, where X = 0 to X = 100, elevation is lowest. At X = 200, Y = 200-400, there seems to be a hill as elevation is around ~284. We can also see another hill in the bottom right of the map. The logged soil nitrogen levels are almost the same across the entire map besides a small cluster on the left-hand side at X = 50, Y = 175.
+
+## Examining Variable Relationships {-}
+
+```{r}
+bur %>% 
+  ggplot(aes(x = DBH95, y = GROWTH)) +
+  geom_point() +
+  labs(x = "Diameter of Trunk at Breast Height", y = "Growth", title = "Trunk Diameter vs Growth") +
+  theme_classic() +
+   theme(plot.title = element_text(hjust = 0.5))
+
+p1 <- bur %>% 
+  ggplot(aes(x = `LOG(N)`, y = GROWTH)) +
+  geom_point() +
+  labs(x = "Logged Soil Nitrogen Levels", y = "Growth", title = "Logged Soil Nitrogen vs Growth") +
+  theme_classic() +
+   theme(plot.title = element_text(hjust = 0.5))
+
+p2 <- bur %>% 
+  ggplot(aes(x = ELEVA, y = GROWTH)) +
+  geom_point() +
+  labs(x = "Elevation", y = "Growth", title = "Elevation vs Growth") +
+  theme_classic() +
+   theme(plot.title = element_text(hjust = 0.5)) 
+
+grid.arrange(p1, p2, ncol = 2)
+
+bur %>% 
+  ggplot(aes(x = GROWTH)) +
+  geom_density() +
+  labs(x = "Growth", title = "Distribution of Growth") +
+  theme_classic() +
+    theme(plot.title = element_text(hjust = 0.5)) 
+```
+Across all exploratory visualizations, we find five bur trees with negative growth (two of them have the same starting trunk diameter and negative growth). We can see that the majority of trees have an initial trunk diameter between 5 and 20. Also, when looking at the logged soil nitrogen levels, we see just a few trees have high levels while the majority remain around 5.5 - 7.5, similar to what we saw from the soil nitrogen map above. The elevation of the trees looks relatively normal. Finally, we see that our outcome variable `Growth` is left-skewed, primarily due to a single outlier. I will remove this outlier to ensure that accuracy of our models. 
+
+```{r}
+bur <- bur %>% 
+  filter(GROWTH > -40)
+```
+
+
+## Linear Models {-}
+
+### Creating and Interpretating the Models
+```{r}
+lm_bur_eleva <- lm(GROWTH ~ ELEVA + DBH95, data = bur)
+
+summary(lm_bur_eleva)
+```
+
+Our first model, we will utilize ordinary least-squares to measure how elevation and the logged base diameter of a tree affect the trees growth. The intercept does not make sense to interpret in the data context as a tree cannot have a base trunk diameter of zero.We'd expect the average tree to shrink 0.19 units for every 1 unit increase in elevation. Additionally, we'd expect the average tree to grow around 0.073 units for every 1 unit increase in base diameter of a tree. All the coefficients have statistically significant p-values. 
+
+```{r}
+lm_bur_n <- lm(GROWTH ~ `LOG(N)` + DBH95, data = bur)
+
+summary(lm_bur_n)
+```
+
+In our second ordinary least squares model, we measure how logged soil nitrogen levels and the base diameter of the trunk affect tree growth. Again, the intercept does not make sense to interpret as a tree cannot have a trunk diameter of zero. We'd expect the average tree to grow by 0.831 units for every 1 unit increase in logged soil nitrogen levels. Additionally, we'd expect the average tree to grow around 0.073 units for every 1 unit increase in base diameter of a tree. Also, all the coefficients are statistically significant.   
+
+### Model Evaluation (Probably add this to the bottom when comparing final models of each with their spatial counterparts)
+
+#### Residuals Map
+
+```{r}
+lm.model.map <- cbind(bur, lm_bur_eleva_pred = predict(lm_bur_eleva)) %>%
+    mutate(lm_bur_eleva_resid = GROWTH - lm_bur_eleva_pred)
+
+#lm.model.map2 <- cbind(bur, spa_bur_eleva_gaussian_pred = predict(spa_bur_eleva_gaussian)) %>% 
+   # mutate(spa_bur_eleva_gaussian_resid = GROWTH - spa_bur_eleva_gaussian_pred)
+
+lm.model.map %>% 
+  ggplot(aes(x = X, y = Y, color = lm_bur_eleva_resid)) +
+  geom_point() + 
+  theme_classic() +
+  scale_color_gradient2(low = "blue", mid = "lightgrey", high = "red") +
+  labs(title = "OLS Elevation Model", color = "Residuals")
+```
+
+
+####Evaluation Metrics
+
+```{r}
+# Calculate Model Residuals
+bur$lm_bur_eleva <- resid(lm_bur_eleva)
+bur$lm_bur_n <- resid(lm_bur_n)
+
+# Bur Elevation Model Eval Metrics
+sqrt(mean(bur$lm_bur_eleva^2))
+BIC(lm_bur_eleva)
+
+# Bur Soil Nitrogen Model Eval Metrics
+sqrt(mean(bur$lm_bur_n^2))
+BIC(lm_bur_n)
+```
+
+### Limitations of Linear Models
+
+While these linear models are a good starting point, they fail to take into consideration the tree's location. If two trees are close together, they might be spatially correlated with each other. Without taking this spatial correlation into consideration, we will get inaccurate standard errors for our models, however the slope estimates are still accurate. To fix this problem, we will utilize a spatial mixed-effects model that will account for the location of the trees while also allowing for each tree to have a different intercept for its trunk diameter.
+
+## Spatial Mixed-Effects Models {-}
+
+### Quick Overview
+
+For the spatial mixed-effects models, I will create two models with elevation as a covariate and another two with logged soil nitrogen levels as a covariate. For all models we will utilize a Matérn covariance matrix, the most common method when computing spatial mixed-effects models, which will allow us to calculate the Matérn covariance between two points separated by a distance, d. For the first elevation and soil nitrogen level models, I will utilize a fixed $\nu$ parameter of 0.5. When using a $\nu$ value of 0.5, the Matérn covariance of two points can be simplified to $\sigma^2exp(-\frac{d}{\rho})$. This will be much more computationally efficient than having an unset $\nu$ parameter. However, setting the $\nu$ parameter will directly affect the $\rho$ value which tells us _____.   
+
+### Creating and Interpretating the Models
+
+```{r}
+spa_bur_eleva_fixed <- fitme(GROWTH ~ ELEVA + DBH95 + Matern(1 | X + Y), data = bur, fixed = list(nu = 0.5))
+```
+
+```{r}
+summary(spa_bur_eleva_fixed) 
+```
+
+From our fixed $\nu = 0.5$ elevation model, a 1 unit increase in elevation leads to a 0.163 unit decrease in growth for the average tree. Additionally, a 1 unit increase in base trunk diameter leads to a 0.094 unit increase in growth for the average tree. STILL NEED TO INTERPRET COND. SE + T-value
+
+
+```{r}
+spa_bur_eleva_gaussian <- fitme(GROWTH ~ ELEVA + DBH95 + Matern(1 | X + Y), data = bur, family = "gaussian")
+```
+
+```{r}
+summary(spa_bur_eleva_gaussian)
+```
+
+### Model Evaluation 
+
+#### Residual Map
+
+```{r}
+model.map <- cbind(bur, spa_bur_eleva_fixed_pred = predict(spa_bur_eleva_fixed)) %>%
+    mutate(spa_bur_eleva_fixed_resid = GROWTH - spa_bur_eleva_fixed_pred)
+
+model.map2 <- cbind(bur, spa_bur_eleva_gaussian_pred = predict(spa_bur_eleva_gaussian)) %>% 
+    mutate(spa_bur_eleva_gaussian_resid = GROWTH - spa_bur_eleva_gaussian_pred)
+
+model.map %>% 
+  ggplot(aes(x = X, y = Y, color = spa_bur_eleva_fixed_resid)) +
+  geom_point() + 
+  theme_classic() +
+  scale_color_gradient2(low = "blue", mid = "lightgrey", high = "red") +
+  labs(title = "Spatial Mixed-Effects Elevation Model (nu = 0.5)", color = "Residuals")
+
+
+model.map2 %>% 
+  ggplot(aes(x = X, y = Y, color = spa_bur_eleva_gaussian_resid)) +
+  geom_point() + 
+  theme_classic() +
+  scale_color_gradient2(low = "blue", mid = "lightgrey", high = "red") +
+  labs(title = "Spatial Mixed-Effects Elevation Model (Gaussian Distribution)", color = "Residuals")
+```
+#### Evaluation Metrics
+
+```{r}
+# Fixed RMSE
+sqrt(mean(model.map$spa_bur_eleva_fixed_resid^2))
+
+# Gaussian RMSE
+sqrt(mean(model.map2$spa_bur_eleva_gaussian_resid^2))
+```
+
+
+
+## Conclusion
+
+### Specifications & Model Runtimes 
+
+spa_bur_eleva_fixed: ~2 mins 30 seconds
+
+spa_bur_eleva_gaussian: ~6 min 10 seconds
