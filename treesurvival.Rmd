@@ -23,11 +23,58 @@ bur_survival <- read_xlsx("BUR ONLY DATA FOR SPATIAL ANALYSIS (SURVIVAL).xlsx") 
 pin_survival <- read_xlsx("PIN ONLY DATA FOR SPATIAL ANALYSIS (SURVIVAL).xlsx") %>%
   mutate(survived = case_when(`Y20 D/L` == "D"~ 0, 
                               TRUE ~ 1))
+
+pin_survival <- pin_survival %>%
+  as.data.frame() 
 ```
 
 
 ```{r}
-pin_mod1 <- fitme(survived ~ ELEVA+DBH95+Matern(1|X+Y), family = binomial(), data=pin_survival)
+#pin_mod1 <- fitme(survived ~ cut(ELEVA,3) + DBH95 + Matern(1 | X+Y), fixed = list(nu = 0.5), family = binomial(), data=pin_survival,control.HLfit = list(algebra='decorr'))
+
+
+
+#library(glmmTMB)
+# fitst we need to create a numeric factor recording the coordinates of the sampled locations
+#pin_survival$pos <- numFactor(scale(pin_survival$X), scale(pin_survival$Y))
+# then create a dummy group factor to be used as a random term
+#pin_survival$ID <- factor(rep(1, nrow(pin_survival)))
+
+# fit the model
+#m_tmb <- glmmTMB(survived ~ cut(ELEVA,3) + DBH95 + mat(pos + 0 | ID), pin_survival, family = binomial()) # take some time to fit
+# model summary of fixed effects
+#summary(m_tmb)
+
+
+pin_survival %>%
+  mutate(ELEVACat = cut(ELEVA,20)) %>%
+  group_by(ELEVACat) %>% summarize(prop = mean(survived,na.rm=TRUE)) %>%
+  ggplot(aes(x = ELEVACat, y = prop)) + geom_point()
+
+pin_survival %>%
+  mutate(Cat = cut(`LOG(N)`,10)) %>%
+  group_by(Cat) %>% summarize(prop = mean(survived,na.rm=TRUE)) %>%
+  ggplot(aes(x = Cat, y = prop)) + geom_point()
+
+pin_survival %>%
+  mutate(Cat = cut(DBH95,10)) %>%
+  group_by(Cat) %>% summarize(prop = mean(survived,na.rm=TRUE)) %>%
+  ggplot(aes(x = Cat, y = prop)) + geom_point()
+
+
+pin_survival$region <- paste0('X',cut(pin_survival$X,breaks=seq(20,420,length = 10)),'Y',cut(pin_survival$Y,breaks=seq(0,400,length = 10)))
+
+pin_survival %>%
+  #mutate(ELEVACat = cut(ELEVA,3)) %>%
+  arrange(region) %>%
+geeM::geem(survived ~ ELEVA + DBH95, family = binomial(),id = region, data = .,corstr='exchangeable') %>% summary()
+
+pin_survival %>%
+  #mutate(ELEVACat = cut(ELEVA,3)) %>%
+  arrange(region) %>%
+geeM::geem(survived ~ `LOG(N)` + DBH95, family = binomial(),id = region, data = .,corstr='exchangeable') %>% summary()
+
+
 ```
 
 ```{r}
