@@ -1,0 +1,60 @@
+---
+title: "Tree survival modeling"
+author: "Erin Franke"
+date: "4/10/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(readxl)
+library(tidyverse)
+library(spaMM)
+library(RSpectra)
+library(ROI.plugin.glpk)
+library(raster)
+library(ggtext)
+bur_survival <- read_xlsx("BUR ONLY DATA FOR SPATIAL ANALYSIS (SURVIVAL).xlsx") %>%
+  mutate(survived = case_when(`Y20 D/L` == "D"~ 0, 
+                              TRUE ~ 1))
+pin_survival <- read_xlsx("PIN ONLY DATA FOR SPATIAL ANALYSIS (SURVIVAL).xlsx") %>%
+  mutate(survived = case_when(`Y20 D/L` == "D"~ 0, 
+                              TRUE ~ 1))
+```
+
+
+```{r}
+pin_mod1 <- fitme(survived ~ ELEVA+DBH95+Matern(1|X+Y), family = binomial(), data=pin_survival)
+```
+
+```{r}
+pin_survival %>% 
+    ggplot(aes(X, Y)) + 
+  geom_density2d(color = "black", lwd = 0.2) +
+    geom_point(aes(color = as.factor(survived)), alpha = 0.3)+
+  scale_color_manual(values = c("darkred", "darkgreen"))+
+    theme_classic()+
+  labs(title = "Pin trees tend to <strong><span style='color:darkred'>die</span></strong></b> more frequently at higher elevations and <strong><span style='color:darkgreen'>survive</span></strong></b> at lower ones")+
+  theme(legend.position = "none",
+        plot.title.position = "plot", 
+        plot.title = element_markdown(family = "mono", size = 8), 
+        axis.text = element_text(family = "mono"), 
+        axis.title = element_text(family = "mono"))
+
+bur_survival %>% 
+    ggplot(aes(X, Y)) + 
+  geom_density2d(color = "black", lwd = 0.2) +
+    geom_point(aes(color = as.factor(survived)), alpha = 0.3)+
+  scale_color_manual(values = c("darkred", "darkgreen"))+
+    theme_classic()+
+  labs(title = "Bur tree <strong><span style='color:darkred'>death</span></strong></b> and <strong><span style='color:darkgreen'>survival</span></strong></b> patterns by elevation are not as clear as pin trees")+
+  theme(legend.position = "none",
+        plot.title.position = "plot", 
+        plot.title = element_markdown(family = "mono", size = 8), 
+        axis.text = element_text(family = "mono"), 
+        axis.title = element_text(family = "mono"))
+```
+
