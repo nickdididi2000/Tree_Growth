@@ -11,10 +11,24 @@ require(ggplot2)
 require(tidyverse)
 require(spaMM)
 library(DHARMa)
+library(glmmTMB)
 ```
 
 ```{r read-data}
 pin_growth <- read_excel("PIN ONLY DATA FOR SPATIAL ANALYSIS (GROWTH).xlsx")
+pin_growth <- pin_growth %>% 
+  as.data.frame()
+
+#From Brianna, need to create numberic factor 
+
+pin_growth$pos <- numFactor(scale(pin_growth$X), scale(pin_growth$Y))
+pin_growth$ID <- factor(rep(1, nrow(pin_growth)))
+pin_growth %>% 
+  select(ID)
+
+#Final Fit 
+m_tmb <- glmmTMB(GROWTH ~ ELEVA + DBH1995 + mat(pos + 0 | ID), pin_growth, gaussian())
+
 ```
 
 # Initial Investigations
