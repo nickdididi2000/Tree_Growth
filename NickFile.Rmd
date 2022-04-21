@@ -184,7 +184,7 @@ lm_pin_eleva <- lm(GROWTH ~ ELEVA + DBH1995, data = no_outliers_pin_growth)
 summary(lm_pin_eleva)
 ```
 
-Our first model, we will utilize ordinary least-squares to measure how elevation and the logged base diameter of a tree affect the trees growth. The intercept does not make sense to interpret in the data context as a tree cannot have a base trunk diameter of zero. We'd expect the average tree to shrink 0.19 units for every 1 unit increase in elevation while holding the base diameter of a tree constant. Additionally, we'd expect the average tree to grow around 0.073 units for every 1 unit increase in base diameter of a tree while holding elevation constant. All the coefficients have statistically significant p-values. 
+Our first model, we will utilize ordinary least-squares to measure how elevation and the logged base diameter of a tree affect the trees growth. The intercept does not make sense to interpret in the data context as a tree cannot have a base trunk diameter of zero. We'd expect the average tree to shrink 0.79 units for every 1 unit increase in elevation while holding the base diameter of a tree constant. Additionally, we'd expect the average tree to grow around 0.10634 units for every 1 unit increase in base diameter of a tree while holding elevation constant. All the coefficients have statistically significant p-values. 
 
 ```{r}
 lm_pin_n <- lm(GROWTH ~ `LOG(N)` + DBH1995, data = no_outliers_pin_growth)
@@ -195,11 +195,11 @@ summary(lm_pin_n)
 In our second ordinary least squares model, we measure how logged soil nitrogen levels and the base diameter of the trunk affect tree growth. Again, the intercept does not make sense to interpret as a tree cannot have a trunk diameter of zero. We'd expect the average tree to grow by 0.831 units for every 1 unit increase in logged soil nitrogen levels while holding the base diameter of a tree constant. Additionally, we'd expect the average tree to grow around 0.073 units for every 1 unit increase in base diameter of a tree while holding logged soil nitrogen levels constant. Also, all the coefficients are statistically significant.   
 
 ```{r include = FALSE}
-lm.model.map <- cbind(bur, lm_bur_eleva_pred = predict(lm_bur_eleva)) %>%
-    mutate(lm_bur_eleva_resid = GROWTH - lm_bur_eleva_pred)
+lm.model.map <- cbind(no_outliers_pin_growth, lm_pin_eleva_pred = predict(lm_pin_eleva)) %>%
+    mutate(lm_pin_eleva_resid = GROWTH - lm_pin_eleva_pred)
 
-lm.model.map2 <- cbind(bur, lm_bur_n_pred = predict(lm_bur_n)) %>%
-    mutate(lm_bur_n_resid = GROWTH - lm_bur_n_pred)
+lm.model.map2 <- cbind(no_outliers_pin_growth, lm_pin_n_pred = predict(lm_pin_n)) %>%
+    mutate(lm_pin_n_resid = GROWTH - lm_pin_n_pred)
 
 # Calculate Model Residuals
 #bur$lm_bur_eleva <- resid(lm_bur_eleva)
@@ -214,14 +214,14 @@ lm.model.map2 <- cbind(bur, lm_bur_n_pred = predict(lm_bur_n)) %>%
 #BIC(lm_bur_n)
 
 lm.model.map %>% 
-  ggplot(aes(x = X, y = Y, color = lm_bur_eleva_resid)) +
+  ggplot(aes(x = X, y = Y, color = lm_pin_eleva_resid)) +
   geom_point() + 
   theme_classic() +
   scale_color_gradient2(low = "blue", mid = "lightgrey", high = "red") +
   labs(title = "OLS Elevation Model", color = "Residuals", caption = "RMSE = 2.450374\nBIC = 10412.12")
 
 lm.model.map2 %>% 
-  ggplot(aes(x = X, y = Y, color = lm_bur_n_resid)) +
+  ggplot(aes(x = X, y = Y, color = lm_pin_n_resid)) +
   geom_point() + 
   theme_classic() +
   scale_color_gradient2(low = "blue", mid = "lightgrey", high = "red") +
@@ -241,7 +241,7 @@ For the spatial mixed-effects models, I will create two models using elevation a
 ### Spatial Elevation Models
 
 ```{r}
-spa_bur_eleva_fixed <- fitme(GROWTH ~ ELEVA + DBH95 + Matern(1 | X + Y), data = bur, fixed = list(nu = 0.5))
+spa_pin_eleva_fixed <- fitme(GROWTH ~ ELEVA + DBH1995 + Matern(1 | X + Y), data = no_outliers_pin_growth, fixed = list(nu = 0.5))
 ```
 
 ```{r}
@@ -249,7 +249,7 @@ summary(spa_bur_eleva_fixed)
 ```
 
 ```{r}
-spa_bur_eleva_gaussian <- fitme(GROWTH ~ ELEVA + DBH95 + Matern(1 | X + Y), data = bur, family = "gaussian")
+spa_pin_eleva_gaussian <- fitme(GROWTH ~ ELEVA + DBH1995 + Matern(1 | X + Y), data = no_outliers_pin_growth, family = "gaussian")
 ```
 
 ```{r}
@@ -257,17 +257,17 @@ summary(spa_bur_eleva_gaussian)
 ```
 
 ```{r}
-spaMM.model.map <- cbind(bur, spa_bur_eleva_fixed_pred = predict(spa_bur_eleva_fixed)) %>%
-    mutate(spa_bur_eleva_fixed_resid = GROWTH - spa_bur_eleva_fixed_pred)
+spaMM.model.map <- cbind(no_outliers_pin_growth, spa_pin_eleva_fixed_pred = predict(spa_pin_eleva_fixed)) %>%
+    mutate(spa_pin_eleva_fixed_resid = GROWTH - spa_pin_eleva_fixed_pred)
 
-spaMM.model.map2 <- cbind(bur, spa_bur_eleva_gaussian_pred = predict(spa_bur_eleva_gaussian)) %>% 
-    mutate(spa_bur_eleva_gaussian_resid = GROWTH - spa_bur_eleva_gaussian_pred)
+spaMM.model.map2 <- cbind(no_outliers_pin_growth, spa_pin_eleva_gaussian_pred = predict(spa_pin_eleva_gaussian)) %>% 
+    mutate(spa_pin_eleva_gaussian_resid = GROWTH - spa_pin_eleva_gaussian_pred)
 
 # Fixed nu RMSE 
-sqrt(mean(spaMM.model.map$spa_bur_eleva_fixed_resid^2))
+sqrt(mean(spaMM.model.map$spa_pin_eleva_fixed_resid^2))
 
 # Gaussian RMSE
-sqrt(mean(spaMM.model.map2$spa_bur_eleva_gaussian_resid^2))
+sqrt(mean(spaMM.model.map2$spa_pin_eleva_gaussian_resid^2))
 ```
 
 After evaluating the RMSEs of both the $\nu = 0.5$ and the gaussian model, we find that the gaussian model has an RMSE of 0.962, whereas the fixed $\nu$ model has an RMSE of 1.854. This means that the fixed $\nu$ model has twice the average magnitude of error as the gaussian model, so the gaussian model more accurately predicts our data.
@@ -276,25 +276,25 @@ After evaluating the RMSEs of both the $\nu = 0.5$ and the gaussian model, we fi
 ### Spatial Soil Nitrogen Models
 
 ```{r}
-spa_bur_n_fixed <- fitme(GROWTH ~ `LOG(N)` + DBH95 + Matern(1 | X + Y), data = bur, fixed = list(nu = 0.5))
+spa_pin_n_fixed <- fitme(GROWTH ~ `LOG(N)` + DBH1995 + Matern(1 | X + Y), data = no_outliers_pin_growth, fixed = list(nu = 0.5))
 ```
 
 ```{r}
-spa_bur_n_gaussian <- fitme(GROWTH ~ `LOG(N)` + DBH95 + Matern(1 | X + Y), data = bur, family = "gaussian")
+spa_pin_n_gaussian <- fitme(GROWTH ~ `LOG(N)` + DBH1995 + Matern(1 | X + Y), data = no_outliers_pin_growth, family = "gaussian")
 ```
 
 ```{r}
-spaMM.model.map3 <- cbind(bur, spa_bur_n_fixed_pred = predict(spa_bur_n_fixed)) %>%
-    mutate(spa_bur_n_fixed_resid = GROWTH - spa_bur_n_fixed_pred)
+spaMM.model.map3 <- cbind(no_outliers_pin_growth, spa_pin_n_fixed_pred = predict(spa_pin_n_fixed)) %>%
+    mutate(spa_pin_n_fixed_resid = GROWTH - spa_pin_n_fixed_pred)
 
-spaMM.model.map4 <- cbind(bur, spa_bur_n_gaussian_pred = predict(spa_bur_n_gaussian)) %>% 
-    mutate(spa_bur_n_gaussian_resid = GROWTH - spa_bur_n_gaussian_pred)
+spaMM.model.map4 <- cbind(no_outliers_pin_growth, spa_pin_n_gaussian_pred = predict(spa_pin_n_gaussian)) %>% 
+    mutate(spa_pin_n_gaussian_resid = GROWTH - spa_pin_n_gaussian_pred)
 
 # Fixed nu RMSE 
-sqrt(mean(spaMM.model.map3$spa_bur_n_fixed_resid^2))
+sqrt(mean(spaMM.model.map3$spa_pin_n_fixed_resid^2))
 
 # Gaussian RMSE
-sqrt(mean(spaMM.model.map4$spa_bur_n_gaussian_resid^2))
+sqrt(mean(spaMM.model.map4$spa_pin_n_gaussian_resid^2))
 ```
 
 
@@ -304,14 +304,14 @@ sqrt(mean(spaMM.model.map4$spa_bur_n_gaussian_resid^2))
 
 ```{r}
 lm.model.map %>% 
-  ggplot(aes(x = X, y = Y, color = lm_bur_eleva_resid)) +
+  ggplot(aes(x = X, y = Y, color = lm_pin_eleva_resid)) +
   geom_point() + 
   theme_classic() +
   scale_color_gradient2(low = "blue", mid = "lightgrey", high = "red") +
   labs(title = "OLS Elevation Model", color = "Residuals")
 
 spaMM.model.map2 %>% 
-  ggplot(aes(x = X, y = Y, color = spa_bur_eleva_gaussian_resid)) +
+  ggplot(aes(x = X, y = Y, color = spa_pin_eleva_gaussian_resid)) +
   geom_point() + 
   theme_classic() +
   scale_color_gradient2(low = "blue", mid = "lightgrey", high = "red") +
@@ -326,10 +326,10 @@ We can utilize residuals maps to visualize the differences in our OLS model and 
 
 ```{r}
 # OLS RMSE
-sqrt(mean(lm.model.map$lm_bur_eleva_resid^2))
+sqrt(mean(lm.model.map$lm_pin_eleva_resid^2))
 
 # Gaussian RMSE
-sqrt(mean(spaMM.model.map2$spa_bur_eleva_gaussian_resid^2))
+sqrt(mean(spaMM.model.map2$spa_pin_eleva_gaussian_resid^2))
 ```
 [Enter in discussion about RMSE]
 
@@ -337,10 +337,10 @@ sqrt(mean(spaMM.model.map2$spa_bur_eleva_gaussian_resid^2))
 
 ```{r}
 lm.model.map %>% 
-    filter(abs(scale(lm_bur_eleva_resid)) > 3)
+    filter(abs(scale(lm_pin_eleva_resid)) > 3)
 
 spaMM.model.map2 %>%
-    filter(abs(scale(spa_bur_eleva_gaussian_resid)) > 3)
+    filter(abs(scale(spa_pin_eleva_gaussian_resid)) > 3)
 ```
 
 [Enter in discussion about residuals]
@@ -348,7 +348,7 @@ spaMM.model.map2 %>%
 ### Best Elevation Model Interpretation
 
 ```{r}
-summary(spa_bur_eleva_gaussian)
+summary(spa_pin_eleva_gaussian)
 ```
 
 [add in slope coefficient interpretations, cond se, t-value discussion]
