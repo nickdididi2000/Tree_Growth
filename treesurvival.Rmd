@@ -33,7 +33,7 @@ pin_survival <- pin_survival %>%
 
 ## Pin trees 
 
-There is a pretty strong negative relationship between elevation and survival for pin trees, emphasized also by the topographic map. 
+There is a pretty strong negative relationship between elevation and survival for pin trees. It also appears that in more densely populated areas of pin trees, more trees die while in more sparsely populated regions more trees survive.  
 
 ```{r, out.width='65%'}
 pin_survival %>%
@@ -57,7 +57,7 @@ pin_survival %>%
     geom_point(aes(color = as.factor(survived)), alpha = 0.3)+
   scale_color_manual(values = c("darkred", "darkgreen"))+
     theme_classic()+
-  labs(title = "Pin trees tend to <strong><span style='color:darkred'>die</span></strong></b> more frequently at higher elevations and <strong><span style='color:darkgreen'>survive</span></strong></b> at lower ones")+
+  labs(title = "Pin tree <strong><span style='color:darkgreen'>survival</span></strong></b> appears higher in more sparsely populated areas")+
   theme(legend.position = "none",
         plot.title.position = "plot", 
         plot.title = element_markdown(family = "mono", size = 8), 
@@ -99,7 +99,7 @@ pin_survival %>%
 
 ## Bur trees 
 
-There is also a negative relationship between elevation and survival for bur trees, though it is not quite as strong as that for pin trees. 
+There is also a negative relationship between elevation and survival for bur trees, though it is not quite as strong as that for pin trees. Additionally, we do not see as strong of a pattern related to tree density and survival for bur trees as we do for pin trees. 
 
 ```{r, out.width='65%'}
 bur_survival %>%
@@ -123,7 +123,7 @@ bur_survival %>%
     geom_point(aes(color = as.factor(survived)), alpha = 0.3)+
   scale_color_manual(values = c("darkred", "darkgreen"))+
     theme_classic()+
-  labs(title = "Bur tree <strong><span style='color:darkred'>death</span></strong></b> and <strong><span style='color:darkgreen'>survival</span></strong></b> patterns by elevation are not as clear as pin trees")+
+  labs(title = "Bur tree <strong><span style='color:darkgreen'>survival</span></strong></b> appears less dependent on tree density than pin tree survival")+
   theme(legend.position = "none",
         plot.title.position = "plot", 
         plot.title = element_markdown(family = "mono", size = 8), 
@@ -170,6 +170,7 @@ bur_survival %>%
 Due to computational issues, we had to make this data areal and divided the data into 81 different regions of about equal size. Each region has between 1 and 106 trees, obviously depending on how densely the trees are populated in that region. We then fit a model that accounts for the spatial correlation of the trees using a GEE model. GEE provides robust SE's that are valid even if we specify the wrong correlation structure (which summarizes the correlation between trees in the same region). This means our standard errors will be valid and allow us to create valid confidence intervals and properly conduct hypothesis tests.
 
 In the pin model, elevation and diameter are both significant coefficients on the $\alpha = 0.001$ level. LOG(N) is insignificant with a p-value of 0.274. The elevation coefficient tells us that holding diameter and LOG(N) constant, we expect the odds of survival to decrease by a factor of 0.76 for every one unit increase in pin tree elevation. Additionally, for every one unit increase in pin tree diameter we expect the odds of pin tree survival to increase by a multiplicative factor of 1.024 holding elevation and LOG(N) constant.
+
 ```{r, echo=TRUE}
 pin_survival$region <- paste0('X',cut(pin_survival$X,breaks=seq(20,420,length = 10)),'Y',cut(pin_survival$Y,breaks=seq(0,400,length = 10)))
 
