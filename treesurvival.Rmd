@@ -1,7 +1,7 @@
 ---
 title: "Tree survival modeling"
 author: "Erin Franke"
-date: "4/10/2022"
+date: "May 2022"
 output: pdf_document
 ---
 
@@ -51,9 +51,10 @@ pin_survival %>%
 ```
 
 ```{r, out.width='65%'}
+#These are density plots rather than elevation
 pin_survival %>% 
-    ggplot(aes(X, Y)) + 
-  geom_density2d(color = "black", lwd = 0.2) +
+    ggplot(aes(x=X, y=Y, z=ELEVA)) + 
+  geom_contour(color = "black", lwd = 0.2) +
     geom_point(aes(color = as.factor(survived)), alpha = 0.3)+
   scale_color_manual(values = c("darkred", "darkgreen"))+
     theme_classic()+

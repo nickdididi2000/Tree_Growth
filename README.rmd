@@ -1,7 +1,7 @@
 ---
-title: "Bur Write Up"
-output: html_document
-date: '2022-04-14'
+title: "Tree growth modeling"
+author: "Alex McCreight, Nicholas Di"
+date: "May 2022"
 ---
 
 ```{r include = FALSE}
@@ -15,14 +15,20 @@ require(gridExtra)
 require(glmmTMB)
 set.seed(452)
 
-bur <- read_excel("BUR ONLY DATA FOR SPATIAL ANALYSIS (GROWTH).xlsx")
+bur <- read_excel("BUR ONLY DATA FOR SPATIAL ANALYSIS (GROWTH).xlsx") %>% as.data.frame() %>% rename(DBH1995 = DBH95)
+
+pin_growth <- read_excel("PIN ONLY DATA FOR SPATIAL ANALYSIS (GROWTH).xlsx") %>% as.data.frame()
+trees <- pin_growth %>% mutate(type = 'pin') %>% full_join(bur %>% mutate(type = 'bur')) 
+
 ```
 
 ## Data Context & Research Question {-}
 
 We will examine two separate tree growth data sets with the same variables. Both data sets, bur and pin, contain a tree id number, location data, the initial diameter of the tree (measured at breast height), logged soil nitrogen levels, the elevation of the tree, and its growth over 25 years. We will investigate whether or not the elevation of a tree will affect its growth while taking into account different tree diameters. We will also run a similar analysis and see whether or not the logged soil nitrogen levels affect a tree's growth while taking each tree's starting diameter. Both analysis' will be run for the bur and pin dataset resulting in four total models. 
 
-## Bur Tree Maps {-}
+## Visualizations {-}
+
+### Tree Maps {-}
 
 ```{r}
 bur %>%
@@ -38,116 +44,236 @@ bur %>%
     labs(title = "Bur Trees Map with Logged Soil Nitrogen Levels", color = "Logged Soil Nitrogen")
 ```
 
-Our initial investigations show that towards the left side of the visualization, where X = 0 to X = 100, elevation is lowest. At X = 200, Y = 200-400, there seems to be a hill as elevation is around ~284. We can also see another hill in the bottom right of the map. The logged soil nitrogen levels are almost the same across the entire map besides a small cluster on the left-hand side at X = 50, Y = 175.
+```{r}
+pin_growth %>%
+    ggplot(aes(x = X, y = Y, color = `ELEVA`)) + 
+    geom_point() + 
+    theme_classic() +
+    labs(title = "Pin Trees Map with Elevation", color = "Elevation")
 
-## Examining Variable Relationships {-}
+pin_growth %>%
+    ggplot(aes(x = X, y = Y, color = `LOG(N)`)) + 
+    geom_point() + 
+    theme_classic() +
+    labs(title = "Pin Trees Map with Logged Soil Nitrogen Levels", color = "Logged Soil Nitrogen")
+```
+
 
 ```{r}
-bur %>% 
-  ggplot(aes(x = DBH95, y = GROWTH)) +
-  geom_point() +
-  labs(x = "Diameter of Trunk at Breast Height", y = "Growth", title = "Trunk Diameter vs Growth") +
-  theme_classic() +
-   theme(plot.title = element_text(hjust = 0.5))
+trees %>%
+    ggplot(aes(x = X, y = Y, color = `ELEVA`,shape = type)) + 
+    geom_point() + 
+    theme_classic() +
+    labs(title = "Trees Map with Elevation", color = "Elevation" ,shape = 'Tree Type')
 
-p1 <- bur %>% 
-  ggplot(aes(x = `LOG(N)`, y = GROWTH)) +
-  geom_point() +
-  labs(x = "Logged Soil Nitrogen Levels", y = "Growth", title = "Logged Soil Nitrogen vs Growth") +
-  theme_classic() +
-   theme(plot.title = element_text(hjust = 0.5))
+trees %>%
+    ggplot(aes(x = X, y = Y, color = `LOG(N)`,shape = type)) + 
+    geom_point() + 
+    theme_classic() +
+    labs(title = "Trees Map with Logged Soil Nitrogen Levels", color = "Logged Soil Nitrogen",shape = 'Tree Type')
 
-p2 <- bur %>% 
-  ggplot(aes(x = ELEVA, y = GROWTH)) +
-  geom_point() +
-  labs(x = "Elevation", y = "Growth", title = "Elevation vs Growth") +
-  theme_classic() +
-   theme(plot.title = element_text(hjust = 0.5)) 
+```
 
-grid.arrange(p1, p2, ncol = 2)
+Our initial investigations show that towards the left side of the visualization, where X = 0 to X = 100, elevation is lowest. At X = 200, Y = 200-400, there seems to be a hill as elevation is around ~284. We can also see another hill in the bottom right of the map. The logged soil nitrogen levels are almost the same across the entire map besides a small cluster on the left-hand side at X = 50, Y = 175.
 
-bur %>% 
-  ggplot(aes(x = GROWTH)) +
-  geom_density() +
+### Examining Growth {-}
+
+```{r}
+trees %>%
+  ggplot(aes(x = GROWTH, fill = type)) +
+  geom_density(alpha=.2) +
   labs(x = "Growth", title = "Distribution of Growth") +
   theme_classic() +
     theme(plot.title = element_text(hjust = 0.5)) 
+
+trees %>% count(type, GROWTH >= 0) # 5 bur trees & 3 pin trees with negative growth
+
+trees %>% filter(GROWTH < 0)
+
+trees %>% filter(GROWTH >= 0) %>%
+  ggplot(aes(x = GROWTH, fill = type)) +
+  geom_density(alpha = .2) +
+  labs(x = "Growth", title = "Distribution of Growth (> 0) among Bur Trees",fill = 'Tree Type') +
+  theme_classic() +
+    theme(plot.title = element_text(hjust = 0.5)) 
 ```
-Across all exploratory visualizations, we find five bur trees with negative growth (two of them have the same starting trunk diameter and negative growth). We can see that the majority of trees have an initial trunk diameter between 5 and 20. Also, when looking at the logged soil nitrogen levels, we see just a few trees have high levels while the majority remain around 5.5 to 7.5, similar to what we saw from the soil nitrogen map above. The elevation of the trees looks relatively normal. Finally, we see that our outcome variable `Growth` is left-skewed, primarily due to a single outlier. I will remove this outlier so that that our model will not systematically under predict tree growth. 
+Across all exploratory visualizations, we find five bur and three pin trees with negative growth.
+
+
+### Examining Variable Relationships {-}
 
 ```{r}
-bur <- bur %>% 
-  filter(GROWTH > -40)
+trees %>% filter(GROWTH >= 0) %>%
+  ggplot(aes(x = DBH1995, y = GROWTH, color = type)) +
+  geom_point(alpha = .2) +
+  geom_smooth(se=FALSE) + 
+  labs(x = "Diameter of Trunk at Breast Height", y = "Growth", title = "Trunk Diameter vs Growth",  color = 'Tree Type') +
+  theme_classic() +
+   theme(plot.title = element_text(hjust = 0.5))
+
+p1 <- trees %>% filter(GROWTH >= 0) %>% 
+  ggplot(aes(x = `LOG(N)`, y = GROWTH, color = type)) +
+  geom_point(alpha = 0.2) +
+  geom_smooth(se=FALSE) + 
+  labs(x = "Logged Soil Nitrogen Levels", y = "Growth", title = "Logged Soil Nitrogen vs Growth",  color = 'Tree Type') +
+  theme_classic() +
+   theme(plot.title = element_text(hjust = 0.5))
+
+p2 <- trees %>% filter(GROWTH >= 0) %>%
+  ggplot(aes(x = ELEVA, y = GROWTH, color = type)) +
+  geom_point(alpha = 0.2) +
+  geom_smooth(se=FALSE) + 
+  labs(x = "Elevation", y = "Growth", title = "Elevation vs Growth",color = 'Tree Type') +
+  theme_classic() +
+  theme(plot.title = element_text(hjust = 0.5)) 
+
+grid.arrange(p1, p2, ncol = 2)
+
+
 ```
 
+We can see that the majority of trees have an trunk diameter between 5 and 20 units. Also, when looking at the logged soil nitrogen levels, we see just a few trees have high levels while the majority remain around 5.5 to 7.5, similar to what we saw from the soil nitrogen map above. The elevation of the trees looks relatively normal. 
 
-## Linear Models {-}
+## Modeling {-}
+### Linear Models {-}
 
-### Creating and Interpretating the Models
 ```{r}
-lm_bur_eleva <- lm(GROWTH ~ ELEVA + DBH95, data = bur)
+trees <- trees %>% filter(GROWTH > 0)
+```
+
+#### Creating and Interpretating the Models
+
+```{r}
+lm_bur_eleva <- lm(GROWTH ~ ELEVA + DBH1995, data = trees %>% filter(type == 'bur'))
 
 summary(lm_bur_eleva)
 ```
 
-Our first model, we will utilize ordinary least-squares to measure how elevation and the logged base diameter of a tree affect the trees growth. The intercept does not make sense to interpret in the data context as a tree cannot have a base trunk diameter of zero. We'd expect the average tree to shrink 0.19 units for every 1 unit increase in elevation while holding the base diameter of a tree constant. Additionally, we'd expect the average tree to grow around 0.073 units for every 1 unit increase in base diameter of a tree while holding elevation constant. All the coefficients have statistically significant p-values. 
+Our first model, we will utilize ordinary least-squares to measure how elevation and the logged base diameter of a tree affect the trees growth of bur trees. The intercept does not make sense to interpret in the data context as a tree cannot have a base trunk diameter of zero. We'd expect the average tree to shrink 0.20 units for every 1 unit increase in elevation while holding the base diameter of a tree constant. Additionally, we'd expect the average tree to grow around 0.07 units for every 1 unit increase in base diameter of a tree while holding elevation constant. All the coefficients have statistically significant p-values, but the standard errors maybe invalid due to the spatial correlation of the observations. 
+
 
 ```{r}
-lm_bur_n <- lm(GROWTH ~ `LOG(N)` + DBH95, data = bur)
+lm_pin_eleva <- lm(GROWTH ~ ELEVA + DBH1995, data = trees %>% filter(type == 'pin'))
+
+summary(lm_pin_eleva)
+```
+
+Similarly for pin trees, we will utilize ordinary least-squares to measure how elevation and the logged base diameter of a tree affect the trees growth of bur trees. We'd expect the average tree to shrink 0.80 units for every 1 unit increase in elevation while holding the base diameter of a tree constant. Additionally, we'd expect the average tree to grow around 0.1 units for every 1 unit increase in base diameter of a tree while holding elevation constant. All the coefficients have statistically significant p-values, but the standard errors maybe invalid due to the spatial correlation of the observations. 
+
+```{r}
+lm_bur_n <- lm(GROWTH ~ `LOG(N)` + DBH1995, data = trees %>% filter(type == 'bur'))
 
 summary(lm_bur_n)
 ```
 
-In our second ordinary least squares model, we measure how logged soil nitrogen levels and the base diameter of the trunk affect tree growth. Again, the intercept does not make sense to interpret as a tree cannot have a trunk diameter of zero. We'd expect the average tree to grow by 0.831 units for every 1 unit increase in logged soil nitrogen levels while holding the base diameter of a tree constant. Additionally, we'd expect the average tree to grow around 0.073 units for every 1 unit increase in base diameter of a tree while holding logged soil nitrogen levels constant. Also, all the coefficients are statistically significant.   
+In our second ordinary least squares model for bur trees, we measure how logged soil nitrogen levels and the base diameter of the trunk affect tree growth.  We'd expect the average tree to grow by 0.831 units for when soil nitrogen levels increase by a factor of 2.7 while holding the base diameter of a tree constant. Additionally, we'd expect the average tree to grow around 0.07 units for every 1 unit increase in base diameter of a tree while holding soil nitrogen levels constant. Also, all the coefficients are statistically significant, but the standard errors maybe invalid due to the spatial correlation of the observations.    
+
+
+
+```{r}
+lm_pin_n <- lm(GROWTH ~ `LOG(N)` + DBH1995, data = trees %>% filter(type == 'pin'))
+
+summary(lm_pin_n)
+```
+We'd expect the average pin tree to grow by 1.9 units for when soil nitrogen levels increase by a factor of 2.7 while holding the base diameter of a tree constant. Additionally, we'd expect the average tree to grow around 0.11 units for every 1 unit increase in base diameter of a tree while holding soil nitrogen levels constant. Also, all the coefficients are statistically significant, but the standard errors maybe invalid due to the spatial correlation of the observations.
 
 ```{r include = FALSE}
-lm.model.map <- cbind(bur, lm_bur_eleva_pred = predict(lm_bur_eleva)) %>%
-    mutate(lm_bur_eleva_resid = GROWTH - lm_bur_eleva_pred)
-
-lm.model.map2 <- cbind(bur, lm_bur_n_pred = predict(lm_bur_n)) %>%
+lm.model.map <- cbind(trees %>% filter(type == 'bur'), lm_bur_eleva_pred = predict(lm_bur_eleva)) %>%
+    mutate(lm_bur_eleva_resid = GROWTH - lm_bur_eleva_pred, lm_bur_n_pred = predict(lm_bur_n)) %>%
     mutate(lm_bur_n_resid = GROWTH - lm_bur_n_pred)
+
+lm.model.map2 <- cbind(trees %>% filter(type == 'pin'), lm_pin_eleva_pred = predict(lm_pin_eleva)) %>%
+    mutate(lm_pin_eleva_resid = GROWTH - lm_pin_eleva_pred, lm_pin_n_pred = predict(lm_pin_n)) %>%
+    mutate(lm_pin_n_resid = GROWTH - lm_pin_n_pred)
 ```
 
-### Limitations of Linear Models
+
+
+#### Limitations of Linear Models
 
 While these linear models are a good starting point, they fail to take into consideration the tree's location. If two trees are close together, they might be spatially correlated with each other. Without taking this spatial correlation into consideration, we will get inaccurate standard errors for our models, however the slope estimates are still accurate. To fix this problem, we will utilize a spatial mixed-effects model that will account for the location of the trees while also allowing for each tree to have a different intercept for its trunk diameter.
 
-## Spatial Mixed-Effects Models {-}
+```{r}
+lm.model.map %>% 
+  ggplot(aes(x = X, y = Y, color = lm_bur_n_resid)) +
+  geom_point() + 
+  theme_classic() +
+  scale_color_gradient2(low = "blue", mid = "lightgrey", high = "red") +
+  labs(title = "OLS Soil Nitrogen Model - Bur Trees", color = "Residuals")
 
-### Quick Overview of spaMM Models
+lm.model.map2 %>% 
+  ggplot(aes(x = X, y = Y, color = lm_pin_n_resid)) +
+  geom_point() + 
+  theme_classic() +
+  scale_color_gradient2(low = "blue", mid = "lightgrey", high = "red") +
+  labs(title = "OLS Soil Nitrogen Model - Pin Trees", color = "Residuals")
+```
 
-Similar to the ordinary least squares model, for the spatial mixed-effects models I will create two models. One of the models will have elevation as a predictor and the other will have logged soil nitrogen levels. For both the models I will utilize a Matérn covariance matrix. The Matérn covariance matrix is a common method when computing spatial mix-effects models as it will allow us to calculate the Matérn covariance between two points separated by a distance, d. For both models, I will use an unset $\nu$ parameter to have the optimized values of $\nu$ and $\rho$ which produce the lowest residuals. For larger data sets, we could utilize a $\nu = 0.5$ to make our model more computationally efficient at the cost of accuracy. However, the bur tree data set is small enough where our model with an unset paramter should only take a few minutes to run. 
-
-### Spatial Elevation Models
 
 ```{r}
-spa_bur_eleva_gaussian <- fitme(GROWTH ~ ELEVA + DBH95 + Matern(1 | X + Y), data = bur, family = "gaussian")
+lm.model.map %>% 
+  ggplot(aes(x = X, y = Y, color = lm_bur_eleva_resid)) +
+  geom_point() + 
+  theme_classic() +
+  scale_color_gradient2(low = "blue", mid = "lightgrey", high = "red") +
+  labs(title = "OLS Elevation Model - Bur Trees", color = "Residuals")
+
+lm.model.map2 %>% 
+  ggplot(aes(x = X, y = Y, color = lm_pin_eleva_resid)) +
+  geom_point() + 
+  theme_classic() +
+  scale_color_gradient2(low = "blue", mid = "lightgrey", high = "red") +
+  labs(title = "OLS Elevation Model - Pin Trees", color = "Residuals")
+```
+
+### Spatial Mixed-Effects Models {-}
+
+#### Quick Overview of spaMM Models
+
+Similar to the ordinary least squares model, for the spatial mixed-effects models I will create two models. One of the models will have elevation as a predictor and the other will have logged soil nitrogen levels. For both the models I will utilize a Matérn covariance matrix. The Matérn covariance matrix is a common method when computing spatial mix-effects models as it will allow us to calculate the Matérn covariance between two points separated by a distance, d. For both models, I will use an unset $\nu$ parameter to have the optimized values of $\nu$ and $\rho$ which produce the lowest residuals. For larger data sets, we could utilize a $\nu = 0.5$ to make our model more computationally efficient at the cost of accuracy. However, the bur tree data set is small enough where our model with an unset parameter should only take a few minutes to run. 
+
+#### Spatial Elevation Models
+
+```{r}
+spa_bur_eleva_gaussian <- fitme(GROWTH ~ ELEVA + DBH1995 + Matern(1 | X + Y), data = trees %>% filter(type == 'bur'), family = "gaussian")
+
+spa_pin_eleva_gaussian <- fitme(GROWTH ~ ELEVA + DBH1995 + Matern(1 | X + Y), data = trees %>% filter(type == 'pin'), family = "gaussian")
 ```
 
 ```{r}
-spaMM.model.map <- cbind(bur, spa_bur_eleva_gaussian_pred = predict(spa_bur_eleva_gaussian)) %>% 
+spaMM.model.map <- cbind(trees %>% filter(type == 'bur'), spa_bur_eleva_gaussian_pred = predict(spa_bur_eleva_gaussian)) %>% 
     mutate(spa_bur_eleva_gaussian_resid = GROWTH - spa_bur_eleva_gaussian_pred)
+
+spaMM.model.map2 <- cbind(trees %>% filter(type == 'pin'), spa_pin_eleva_gaussian_pred = predict(spa_pin_eleva_gaussian)) %>% 
+    mutate(spa_pin_eleva_gaussian_resid = GROWTH - spa_pin_eleva_gaussian_pred)
 
 # spaMM Elevation RMSE
 sqrt(mean(spaMM.model.map$spa_bur_eleva_gaussian_resid^2))
+
+sqrt(mean(spaMM.model.map2$spa_pin_eleva_gaussian_resid^2))
 ```
 
 
-### Spatial Soil Nitrogen Models
+#### Spatial Soil Nitrogen Models
 
 ```{r}
-spa_bur_n_gaussian <- fitme(GROWTH ~ `LOG(N)` + DBH95 + Matern(1 | X + Y), data = bur, family = "gaussian")
+spa_bur_n_gaussian <- fitme(GROWTH ~ `LOG(N)` + DBH1995 + Matern(1 | X + Y), data = trees %>% filter(type == 'bur'), family = "gaussian")
+
+spa_pin_n_gaussian <- fitme(GROWTH ~ `LOG(N)` + DBH1995 + Matern(1 | X + Y), data = trees %>% filter(type == 'pin'), family = "gaussian")
 ```
 
 ```{r}
-spaMM.model.map2 <- cbind(bur, spa_bur_n_gaussian_pred = predict(spa_bur_n_gaussian)) %>% 
+spaMM.model.map <- spaMM.model.map %>% mutate(spa_bur_n_gaussian_pred = as.numeric(predict(spa_bur_n_gaussian))) %>% 
     mutate(spa_bur_n_gaussian_resid = GROWTH - spa_bur_n_gaussian_pred)
+
+spaMM.model.map2 <- spaMM.model.map2 %>% mutate(spa_pin_n_gaussian_pred = as.numeric(predict(spa_pin_n_gaussian))) %>% 
+    mutate(spa_pin_n_gaussian_resid = GROWTH - spa_pin_n_gaussian_pred)
 ```
 
 
-## OLS vs Spatial Elevation Model Comparison {-}
+### OLS vs Spatial Elevation Model Comparison {-}
 
-### Elevation Evaluation Metrics
+#### Elevation Evaluation Metrics
 
 ```{r}
 # OLS RMSE
@@ -157,9 +283,19 @@ sqrt(mean(lm.model.map$lm_bur_eleva_resid^2))
 sqrt(mean(spaMM.model.map$spa_bur_eleva_gaussian_resid^2))
 ```
 
-When using BIC scores (lower = better) we find that our spatially mixed effect model has a significantly lower BIC score (0.963) than the OLS elevation model (2.450).
+We find that our spatially mixed effect model has a significantly lower root mean squared error (0.96) than the OLS elevation model (2.38) for bur trees.
 
-### Elevation Residual Maps
+```{r}
+# OLS RMSE
+sqrt(mean(lm.model.map2$lm_pin_eleva_resid^2))
+
+# spaMM RMSE
+sqrt(mean(spaMM.model.map2$spa_pin_eleva_gaussian_resid^2))
+```
+
+We find that our spatially mixed effect model has a significantly lower root mean squared error (0.40) than the OLS elevation model (5.39) for bur trees.
+
+#### Elevation Residual Maps
 
 ```{r}
 lm.model.map %>% 
@@ -167,58 +303,112 @@ lm.model.map %>%
   geom_point() + 
   theme_classic() +
   scale_color_gradient2(low = "blue", mid = "lightgrey", high = "red") +
-  labs(title = "OLS Elevation Model", color = "Residuals")
+  labs(title = "OLS Elevation Model - Bur Trees", color = "Residuals")
 
 spaMM.model.map %>% 
   ggplot(aes(x = X, y = Y, color = spa_bur_eleva_gaussian_resid)) +
   geom_point() + 
   theme_classic() +
   scale_color_gradient2(low = "blue", mid = "lightgrey", high = "red") +
-  labs(title = "Spatial Mixed-Effects Elevation Model", color = "Residuals")
+  labs(title = "Spatial Mixed-Effects Elevation Model - Bur Trees", color = "Residuals")
 ```
 
 Looking at the residual maps for our OLS and spaMM elevation models we can see that the scale on the right-hand side is much larger for the OLS model. This indicates that the magnitude for the residuals of the spatial mixed-effects model is much smaller, which is ideal. Additionally, when looking at the residual map for the spatial mixed effects model, there does not seem to be any specific area where our model is systematically over or under predicting the residuals. This leads us to believe that there might be no spatial correlation among the tress. 
 
-## OLS vs Spatial Soil Nitrogen Model Comparison {-}
+```{r}
+lm.model.map2 %>% 
+  ggplot(aes(x = X, y = Y, color = lm_pin_eleva_resid)) +
+  geom_point() + 
+  theme_classic() +
+  scale_color_gradient2(low = "blue", mid = "lightgrey", high = "red") +
+  labs(title = "OLS Elevation Model - Pin Trees", color = "Residuals")
 
-### Soil Nitrogen Evaluation Metrics
+spaMM.model.map2 %>% 
+  ggplot(aes(x = X, y = Y, color = spa_pin_eleva_gaussian_resid)) +
+  geom_point() + 
+  theme_classic() +
+  scale_color_gradient2(low = "blue", mid = "lightgrey", high = "red") +
+  labs(title = "Spatial Mixed-Effects Elevation Model - Pin Trees", color = "Residuals")
+```
+
+### OLS vs Spatial Soil Nitrogen Model Comparison {-}
+
+#### Soil Nitrogen Evaluation Metrics
 
 ```{r}
 # OLS RMSE
-sqrt(mean(lm.model.map2$lm_bur_n_resid^2))
+sqrt(mean(lm.model.map$lm_bur_n_resid^2))
 
 # spaMM RMSE
-sqrt(mean(spaMM.model.map2$spa_bur_n_gaussian_resid^2))
+sqrt(mean(spaMM.model.map$spa_bur_n_gaussian_resid^2))
 ```
 
-Similar to our elevation models, the spatially mixed-effects model produce a lower BIC score (0.945) compared to the OLS model's BIC score (2.436).
-
-### Soil Nitrogen Residual Map
+Similar to our elevation models, the spatially mixed-effects model produce a lower root mean squared error (0.93) compared to the OLS model's RMSE (2.36) for bur trees.
 
 ```{r}
-lm.model.map2 %>% 
+# OLS RMSE
+sqrt(mean(lm.model.map2$lm_pin_n_resid^2))
+
+# spaMM RMSE
+sqrt(mean(spaMM.model.map2$spa_pin_n_gaussian_resid^2))
+```
+
+The spatially mixed-effects model produce a lower root mean squared error (0.41) compared to the OLS model's RMSE score (5.45).
+
+#### Soil Nitrogen Residual Map
+
+```{r}
+lm.model.map %>% 
   ggplot(aes(x = X, y = Y, color = lm_bur_n_resid)) +
   geom_point() + 
   theme_classic() +
   scale_color_gradient2(low = "blue", mid = "lightgrey", high = "red") +
-  labs(title = "OLS Soil Nitrogen Model", color = "Residuals")
+  labs(title = "OLS Soil Nitrogen Model - Bur Trees", color = "Residuals")
 
-spaMM.model.map2 %>% 
+spaMM.model.map %>% 
   ggplot(aes(x = X, y = Y, color = spa_bur_n_gaussian_resid)) +
   geom_point() + 
   theme_classic() +
   scale_color_gradient2(low = "blue", mid = "lightgrey", high = "red") +
-  labs(title = "Spatial Mixed-Effects Soil Nitrogen Model", color = "Residuals")
+  labs(title = "Spatial Mixed-Effects Soil Nitrogen Model - Bur Trees", color = "Residuals")
+```
+
+```{r}
+lm.model.map2 %>% 
+  ggplot(aes(x = X, y = Y, color = lm_pin_n_resid)) +
+  geom_point() + 
+  theme_classic() +
+  scale_color_gradient2(low = "blue", mid = "lightgrey", high = "red") +
+  labs(title = "OLS Soil Nitrogen Model - Pin Trees", color = "Residuals")
+
+spaMM.model.map2 %>% 
+  ggplot(aes(x = X, y = Y, color = spa_pin_n_gaussian_resid)) +
+  geom_point() + 
+  theme_classic() +
+  scale_color_gradient2(low = "blue", mid = "lightgrey", high = "red") +
+  labs(title = "Spatial Mixed-Effects Soil Nitrogen Model - Pin Trees", color = "Residuals")
 ```
 
 Again, looking at our residual maps, we see from the scale that the magnitude of the residuals from our spatially mixed effects model are much lower. However, there seems to be no pattern for which areas are over and under predicted, so our data might not be spatially correlated. 
 
-## Random Effects Elevation Model
+## Model Summary {-}
+
+### Elevation
+
+Using the spatial mixed effects model, there is some evidence that elevation has a negative relationship with growth after accounting for tree diameter. This relationship is strong among pin trees with a -0.67 coefficient that is statistically discernible from 0. Bur trees display a weaker relationship that is moderately statistically discernible from 0.
 
 ```{r}
-# Not working
-#randomeffects_eleva <- lmer(GROWTH ~ ELEVA + DBH95 + (DBH95 | ID_), data = bur)
+summary(spa_bur_eleva_gaussian)
+summary(spa_pin_eleva_gaussian)
 ```
 
+### Soil Nitrogen 
+
+Using the spatial mixed effects model, there is weak evidence that soil nitrogen has a positive relationship with growth after accounting for tree diameter. This relationship is stronger among pin trees with a 1.4 coefficient that is moderately discernible from 0. Bur trees display a weaker relationship that is not statistically discernible from 0.
+
+```{r}
+summary(spa_bur_n_gaussian)
+summary(spa_pin_n_gaussian)
+```
 
 ## Conclusion
