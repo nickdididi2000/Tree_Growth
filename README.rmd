@@ -73,7 +73,7 @@ bur %>%
   theme_classic() +
     theme(plot.title = element_text(hjust = 0.5)) 
 ```
-Across all exploratory visualizations, we find five bur trees with negative growth (two of them have the same starting trunk diameter and negative growth). We can see that the majority of trees have an initial trunk diameter between 5 and 20. Also, when looking at the logged soil nitrogen levels, we see just a few trees have high levels while the majority remain around 5.5 - 7.5, similar to what we saw from the soil nitrogen map above. The elevation of the trees looks relatively normal. Finally, we see that our outcome variable `Growth` is left-skewed, primarily due to a single outlier. I will remove this outlier so that that our model will not systematically under predict the growth of a tree. 
+Across all exploratory visualizations, we find five bur trees with negative growth (two of them have the same starting trunk diameter and negative growth). We can see that the majority of trees have an initial trunk diameter between 5 and 20. Also, when looking at the logged soil nitrogen levels, we see just a few trees have high levels while the majority remain around 5.5 to 7.5, similar to what we saw from the soil nitrogen map above. The elevation of the trees looks relatively normal. Finally, we see that our outcome variable `Growth` is left-skewed, primarily due to a single outlier. I will remove this outlier so that that our model will not systematically under predict tree growth. 
 
 ```{r}
 bur <- bur %>% 
@@ -106,32 +106,6 @@ lm.model.map <- cbind(bur, lm_bur_eleva_pred = predict(lm_bur_eleva)) %>%
 
 lm.model.map2 <- cbind(bur, lm_bur_n_pred = predict(lm_bur_n)) %>%
     mutate(lm_bur_n_resid = GROWTH - lm_bur_n_pred)
-
-# Calculate Model Residuals
-#bur$lm_bur_eleva <- resid(lm_bur_eleva)
-#bur$lm_bur_n <- resid(lm_bur_n)
-
-# Bur Elevation Model Eval Metrics
-#sqrt(mean(bur$lm_bur_eleva^2))
-#BIC(lm_bur_eleva)
-
-# Bur Soil Nitrogen Model Eval Metrics
-#sqrt(mean(bur$lm_bur_n^2))
-#BIC(lm_bur_n)
-
-lm.model.map %>% 
-  ggplot(aes(x = X, y = Y, color = lm_bur_eleva_resid)) +
-  geom_point() + 
-  theme_classic() +
-  scale_color_gradient2(low = "blue", mid = "lightgrey", high = "red") +
-  labs(title = "OLS Elevation Model", color = "Residuals", caption = "RMSE = 2.450374\nBIC = 10412.12")
-
-lm.model.map2 %>% 
-  ggplot(aes(x = X, y = Y, color = lm_bur_n_resid)) +
-  geom_point() + 
-  theme_classic() +
-  scale_color_gradient2(low = "blue", mid = "lightgrey", high = "red") +
-  labs(title = "OLS Soil Nitrogen Model", color = "Residuals", caption = "RMSE = 2.436396\nBIC = 10386.47")
 ```
 
 ### Limitations of Linear Models
@@ -142,69 +116,48 @@ While these linear models are a good starting point, they fail to take into cons
 
 ### Quick Overview of spaMM Models
 
-For the spatial mixed-effects models, I will create two models using elevation as a predictor and two using logged soil nitrogen levels as a predictor. For all models, we will utilize a Matérn covariance matrix. The Matérn covariance matrix is the most common method when computing spatial mixed-effects models and it will allow us to calculate the Matérn covariance between two points separated by a distance, d. For both the elevation and soil nitrogen models, I will first utilize a fixed $\nu$ parameter of 0.5. When using a $\nu$ value of 0.5, the Matérn covariance of two points can be simplified to $\sigma^2exp(-\frac{d}{\rho})$. This will be much more computationally efficient than having an unset $\nu$ parameter at the cost of model accuracy. For the second elevation and soil nitrogen models, I will have an unset $\nu$ and $\rho$ parameter allowing the fitme command to find the optimized values that produce the lowest residuals. 
+Similar to the ordinary least squares model, for the spatial mixed-effects models I will create two models. One of the models will have elevation as a predictor and the other will have logged soil nitrogen levels. For both the models I will utilize a Matérn covariance matrix. The Matérn covariance matrix is a common method when computing spatial mix-effects models as it will allow us to calculate the Matérn covariance between two points separated by a distance, d. For both models, I will use an unset $\nu$ parameter to have the optimized values of $\nu$ and $\rho$ which produce the lowest residuals. For larger data sets, we could utilize a $\nu = 0.5$ to make our model more computationally efficient at the cost of accuracy. However, the bur tree data set is small enough where our model with an unset paramter should only take a few minutes to run. 
 
 ### Spatial Elevation Models
-
-```{r}
-spa_bur_eleva_fixed <- fitme(GROWTH ~ ELEVA + DBH95 + Matern(1 | X + Y), data = bur, fixed = list(nu = 0.5))
-```
-
-```{r}
-summary(spa_bur_eleva_fixed) 
-```
 
 ```{r}
 spa_bur_eleva_gaussian <- fitme(GROWTH ~ ELEVA + DBH95 + Matern(1 | X + Y), data = bur, family = "gaussian")
 ```
 
 ```{r}
-summary(spa_bur_eleva_gaussian)
-```
-
-```{r}
-spaMM.model.map <- cbind(bur, spa_bur_eleva_fixed_pred = predict(spa_bur_eleva_fixed)) %>%
-    mutate(spa_bur_eleva_fixed_resid = GROWTH - spa_bur_eleva_fixed_pred)
-
-spaMM.model.map2 <- cbind(bur, spa_bur_eleva_gaussian_pred = predict(spa_bur_eleva_gaussian)) %>% 
+spaMM.model.map <- cbind(bur, spa_bur_eleva_gaussian_pred = predict(spa_bur_eleva_gaussian)) %>% 
     mutate(spa_bur_eleva_gaussian_resid = GROWTH - spa_bur_eleva_gaussian_pred)
 
-# Fixed nu RMSE 
-sqrt(mean(spaMM.model.map$spa_bur_eleva_fixed_resid^2))
-
-# Gaussian RMSE
-sqrt(mean(spaMM.model.map2$spa_bur_eleva_gaussian_resid^2))
+# spaMM Elevation RMSE
+sqrt(mean(spaMM.model.map$spa_bur_eleva_gaussian_resid^2))
 ```
-
-After evaluating the RMSEs of both the $\nu = 0.5$ and the gaussian model, we find that the gaussian model has an RMSE of 0.962, whereas the fixed $\nu$ model has an RMSE of 1.854. This means that the fixed $\nu$ model has twice the average magnitude of error as the gaussian model, so the gaussian model more accurately predicts our data.
 
 
 ### Spatial Soil Nitrogen Models
-
-```{r}
-spa_bur_n_fixed <- fitme(GROWTH ~ `LOG(N)` + DBH95 + Matern(1 | X + Y), data = bur, fixed = list(nu = 0.5))
-```
 
 ```{r}
 spa_bur_n_gaussian <- fitme(GROWTH ~ `LOG(N)` + DBH95 + Matern(1 | X + Y), data = bur, family = "gaussian")
 ```
 
 ```{r}
-spaMM.model.map3 <- cbind(bur, spa_bur_n_fixed_pred = predict(spa_bur_n_fixed)) %>%
-    mutate(spa_bur_n_fixed_resid = GROWTH - spa_bur_n_fixed_pred)
-
-spaMM.model.map4 <- cbind(bur, spa_bur_n_gaussian_pred = predict(spa_bur_n_gaussian)) %>% 
+spaMM.model.map2 <- cbind(bur, spa_bur_n_gaussian_pred = predict(spa_bur_n_gaussian)) %>% 
     mutate(spa_bur_n_gaussian_resid = GROWTH - spa_bur_n_gaussian_pred)
-
-# Fixed nu RMSE 
-sqrt(mean(spaMM.model.map3$spa_bur_n_fixed_resid^2))
-
-# Gaussian RMSE
-sqrt(mean(spaMM.model.map4$spa_bur_n_gaussian_resid^2))
 ```
 
 
-## OLS vs Spatial Model Comparison {-}
+## OLS vs Spatial Elevation Model Comparison {-}
+
+### Elevation Evaluation Metrics
+
+```{r}
+# OLS RMSE
+sqrt(mean(lm.model.map$lm_bur_eleva_resid^2))
+
+# spaMM RMSE
+sqrt(mean(spaMM.model.map$spa_bur_eleva_gaussian_resid^2))
+```
+
+When using BIC scores (lower = better) we find that our spatially mixed effect model has a significantly lower BIC score (0.963) than the OLS elevation model (2.450).
 
 ### Elevation Residual Maps
 
@@ -216,65 +169,56 @@ lm.model.map %>%
   scale_color_gradient2(low = "blue", mid = "lightgrey", high = "red") +
   labs(title = "OLS Elevation Model", color = "Residuals")
 
-spaMM.model.map2 %>% 
+spaMM.model.map %>% 
   ggplot(aes(x = X, y = Y, color = spa_bur_eleva_gaussian_resid)) +
   geom_point() + 
   theme_classic() +
   scale_color_gradient2(low = "blue", mid = "lightgrey", high = "red") +
-  labs(title = "Spatial Mixed-Effects Elevation Model (Gaussian Distribution)", color = "Residuals")
+  labs(title = "Spatial Mixed-Effects Elevation Model", color = "Residuals")
 ```
 
-We can utilize residuals maps to visualize the differences in our OLS model and our Gaussian Spatial Mixed Effects model. While the pictures look somewhat similar, the most important part of the visualization is the scale. We see that the scale for the OLS model ranges from around X to Y whereas the scale for the Spatial model ranges from X to Y. 
+Looking at the residual maps for our OLS and spaMM elevation models we can see that the scale on the right-hand side is much larger for the OLS model. This indicates that the magnitude for the residuals of the spatial mixed-effects model is much smaller, which is ideal. Additionally, when looking at the residual map for the spatial mixed effects model, there does not seem to be any specific area where our model is systematically over or under predicting the residuals. This leads us to believe that there might be no spatial correlation among the tress. 
 
-### Elevation Evaluation Metrics
-
-#### RMSE
-
-```{r}
-# OLS RMSE
-sqrt(mean(lm.model.map$lm_bur_eleva_resid^2))
-
-# Gaussian RMSE
-sqrt(mean(spaMM.model.map2$spa_bur_eleva_gaussian_resid^2))
-```
-[Enter in discussion about RMSE]
-
-#### Extreme Residuals
-
-```{r}
-lm.model.map %>% 
-    filter(abs(scale(lm_bur_eleva_resid)) > 3)
-
-spaMM.model.map2 %>%
-    filter(abs(scale(spa_bur_eleva_gaussian_resid)) > 3)
-```
-
-[Enter in discussion about residuals]
-
-### Best Elevation Model Interpretation
-
-```{r}
-summary(spa_bur_eleva_gaussian)
-```
-
-[add in slope coefficient interpretations, cond se, t-value discussion]
-
-### Soil Nitrogen Residual Maps
+## OLS vs Spatial Soil Nitrogen Model Comparison {-}
 
 ### Soil Nitrogen Evaluation Metrics
 
-#### RMSE
+```{r}
+# OLS RMSE
+sqrt(mean(lm.model.map2$lm_bur_n_resid^2))
 
-#### Extreme Residuals
+# spaMM RMSE
+sqrt(mean(spaMM.model.map2$spa_bur_n_gaussian_resid^2))
+```
 
-### Best Soil Nitrogen Model Interpretation
+Similar to our elevation models, the spatially mixed-effects model produce a lower BIC score (0.945) compared to the OLS model's BIC score (2.436).
+
+### Soil Nitrogen Residual Map
+
+```{r}
+lm.model.map2 %>% 
+  ggplot(aes(x = X, y = Y, color = lm_bur_n_resid)) +
+  geom_point() + 
+  theme_classic() +
+  scale_color_gradient2(low = "blue", mid = "lightgrey", high = "red") +
+  labs(title = "OLS Soil Nitrogen Model", color = "Residuals")
+
+spaMM.model.map2 %>% 
+  ggplot(aes(x = X, y = Y, color = spa_bur_n_gaussian_resid)) +
+  geom_point() + 
+  theme_classic() +
+  scale_color_gradient2(low = "blue", mid = "lightgrey", high = "red") +
+  labs(title = "Spatial Mixed-Effects Soil Nitrogen Model", color = "Residuals")
+```
+
+Again, looking at our residual maps, we see from the scale that the magnitude of the residuals from our spatially mixed effects model are much lower. However, there seems to be no pattern for which areas are over and under predicted, so our data might not be spatially correlated. 
+
+## Random Effects Elevation Model
+
+```{r}
+# Not working
+#randomeffects_eleva <- lmer(GROWTH ~ ELEVA + DBH95 + (DBH95 | ID_), data = bur)
+```
+
 
 ## Conclusion
-
-## Specifications & Model Runtimes 
-
-All models were ran using a 2021 MacBook Pro M1 Pro Chip (8-core CPU, 14-core GPU, 16-core Neural Engine, 200GB/s memory bandwidth)
-
-*spa_bur_eleva_fixed* & *spa_bur_n_fixed*: ~2 mins 30 seconds
-
-*spa_bur_eleva_gaussian* & *spa_bur_n_gaussian*: ~6 min 10 seconds
