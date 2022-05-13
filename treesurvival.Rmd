@@ -2,15 +2,15 @@
 title: "Tree survival modeling"
 author: "Erin Franke"
 date: "4/10/2022"
-output: html_document
+output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE)
 ```
 
-Load data and libraries
-```{r}
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+# Load data and libraries
 library(readxl)
 library(tidyverse)
 library(spaMM)
@@ -29,8 +29,13 @@ pin_survival <- pin_survival %>%
   as.data.frame() 
 ```
 
-Exploratory Data analysis for relationship between `DBH95`, `ELEVA` and `LOG(N)` with tree survival for PIN trees.
-```{r}
+# Exploratory Data Analysis 
+
+## Pin trees 
+
+There is a pretty strong negative relationship between elevation and survival for pin trees, emphasized also by the topographic map. 
+
+```{r, out.width='65%'}
 pin_survival %>%
   mutate(ELEVACat = cut(ELEVA,20)) %>%
   group_by(ELEVACat) %>% 
@@ -43,33 +48,9 @@ pin_survival %>%
         plot.title = element_text(family = "mono"), 
         axis.text.x = element_text(family = "mono", angle = 90), 
         axis.text.y = element_text(family= "mono"))
+```
 
-pin_survival %>%
-  mutate(Cat = cut(`LOG(N)`,10)) %>%
-  group_by(Cat) %>% 
-  summarize(prop = mean(survived,na.rm=TRUE)) %>%
-  ggplot(aes(x = Cat, y = prop)) + 
-  geom_point()+
-  theme_classic()+
-  labs(title = "Survival rate for Pin trees by LOG(N) category", y="", x="")+
-  theme(plot.title.position = "plot", 
-        plot.title = element_text(family = "mono"), 
-        axis.text.x = element_text(family = "mono", angle = 90), 
-        axis.text.y = element_text(family= "mono"))
-
-pin_survival %>%
-  mutate(Cat_DBH = cut(DBH95,10)) %>%
-  group_by(Cat_DBH) %>% 
-  summarize(prop = mean(survived,na.rm=TRUE)) %>%
-  ggplot(aes(x = Cat_DBH, y = prop)) + 
-  geom_point()+
-  theme_classic()+
-  labs(title = "Survival rate for Pin trees by diameter", y="", x="")+
-  theme(plot.title.position = "plot", 
-        plot.title = element_text(family = "mono"), 
-        axis.text.x = element_text(family = "mono", angle = 90), 
-        axis.text.y = element_text(family= "mono"))
-
+```{r, out.width='65%'}
 pin_survival %>% 
     ggplot(aes(X, Y)) + 
   geom_density2d(color = "black", lwd = 0.2) +
@@ -84,8 +65,43 @@ pin_survival %>%
         axis.title = element_text(family = "mono"))
 ```
 
-Exploratory Data analysis for relationship between `DBH95`, `ELEVA` and `LOG(N)` with tree survival for BUR trees.
-```{r}
+There is a positive moderate relationship between LOG(N) and pin tree survival, as well as diameter and pin tree survival. 
+
+```{r, out.width='65%'}
+pin_survival %>%
+  mutate(Cat = cut(`LOG(N)`,10)) %>%
+  group_by(Cat) %>% 
+  summarize(prop = mean(survived,na.rm=TRUE)) %>%
+  ggplot(aes(x = Cat, y = prop)) + 
+  geom_point()+
+  theme_classic()+
+  labs(title = "Survival rate for Pin trees by LOG(N) category", y="", x="")+
+  theme(plot.title.position = "plot", 
+        plot.title = element_text(family = "mono"), 
+        axis.text.x = element_text(family = "mono", angle = 90), 
+        axis.text.y = element_text(family= "mono"))
+```
+
+```{r, out.width='65%'}
+pin_survival %>%
+  mutate(Cat_DBH = cut(DBH95,10)) %>%
+  group_by(Cat_DBH) %>% 
+  summarize(prop = mean(survived,na.rm=TRUE)) %>%
+  ggplot(aes(x = Cat_DBH, y = prop)) + 
+  geom_point()+
+  theme_classic()+
+  labs(title = "Survival rate for Pin trees by diameter", y="", x="")+
+  theme(plot.title.position = "plot", 
+        plot.title = element_text(family = "mono"), 
+        axis.text.x = element_text(family = "mono", angle = 90), 
+        axis.text.y = element_text(family= "mono"))
+```
+
+## Bur trees 
+
+There is also a negative relationship between elevation and survival for bur trees, though it is not quite as strong as that for pin trees. 
+
+```{r, out.width='65%'}
 bur_survival %>%
   mutate(ELEVACat = cut(ELEVA,20)) %>%
   group_by(ELEVACat) %>% 
@@ -98,33 +114,9 @@ bur_survival %>%
         plot.title = element_text(family = "mono"), 
         axis.text.x = element_text(family = "mono", angle = 90), 
         axis.text.y = element_text(family= "mono"))
+```
 
-bur_survival %>%
-  mutate(Cat = cut(`LOG(N)`,10)) %>%
-  group_by(Cat) %>% 
-  summarize(prop = mean(survived,na.rm=TRUE)) %>%
-  ggplot(aes(x = Cat, y = prop)) + 
-  geom_point()+
-  theme_classic()+
-  labs(title = "Survival rate for Bur trees by LOG(N) category", y="", x="")+
-  theme(plot.title.position = "plot", 
-        plot.title = element_text(family = "mono"), 
-        axis.text.x = element_text(family = "mono", angle = 90), 
-        axis.text.y = element_text(family= "mono"))
-
-bur_survival %>%
-  mutate(Cat_DBH = cut(DBH95,10)) %>%
-  group_by(Cat_DBH) %>% 
-  summarize(prop = mean(survived,na.rm=TRUE)) %>%
-  ggplot(aes(x = Cat_DBH, y = prop)) + 
-  geom_point()+
-  theme_classic()+
-  labs(title = "Survival rate for Bur trees by diameter", y="", x="")+
-  theme(plot.title.position = "plot", 
-        plot.title = element_text(family = "mono"), 
-        axis.text.x = element_text(family = "mono", angle = 90), 
-        axis.text.y = element_text(family= "mono"))
-
+```{r, out.width='65%'}
 bur_survival %>% 
     ggplot(aes(X, Y)) + 
   geom_density2d(color = "black", lwd = 0.2) +
@@ -139,24 +131,80 @@ bur_survival %>%
         axis.title = element_text(family = "mono"))
 ```
 
-PIN modeling
-```{r}
-pin_survival$region <- paste0('X',cut(pin_survival$X,breaks=seq(20,420,length = 10)),'Y',cut(pin_survival$Y,breaks=seq(0,400,length = 10)))
+There does not appear to be a distinct relationship between LOG(N) and bur tree survival. The relationship between diameter and bur tree survival looks somewhat quadratic, with survival being highest at medium diameters and much lower for skinnier or very large trees. 
 
-pin_survival %>%
-  #mutate(ELEVACat = cut(ELEVA,3)) %>%
-  arrange(region) %>%
-geeM::geem(survived ~ ELEVA + DBH95, family = binomial(),id = region, data = .,corstr='exchangeable') %>% summary()
-
-pin_survival %>%
-  #mutate(ELEVACat = cut(ELEVA,3)) %>%
-  arrange(region) %>%
-geeM::geem(survived ~ `LOG(N)` + DBH95, family = binomial(),id = region, data = .,corstr='exchangeable') %>% summary()
-
-
+```{r, out.width='65%'}
+bur_survival %>%
+  mutate(Cat = cut(`LOG(N)`,10)) %>%
+  group_by(Cat) %>% 
+  summarize(prop = mean(survived,na.rm=TRUE)) %>%
+  ggplot(aes(x = Cat, y = prop)) + 
+  geom_point()+
+  theme_classic()+
+  labs(title = "Survival rate for Bur trees by LOG(N) category", y="", x="")+
+  theme(plot.title.position = "plot", 
+        plot.title = element_text(family = "mono"), 
+        axis.text.x = element_text(family = "mono", angle = 90), 
+        axis.text.y = element_text(family= "mono"))
 ```
 
+```{r, out.width='65%'}
+bur_survival %>%
+  mutate(Cat_DBH = cut(DBH95,10)) %>%
+  group_by(Cat_DBH) %>% 
+  summarize(prop = mean(survived,na.rm=TRUE)) %>%
+  ggplot(aes(x = Cat_DBH, y = prop)) + 
+  geom_point()+
+  theme_classic()+
+  labs(title = "Survival rate for Bur trees by diameter", y="", x="")+
+  theme(plot.title.position = "plot", 
+        plot.title = element_text(family = "mono"), 
+        axis.text.x = element_text(family = "mono", angle = 90), 
+        axis.text.y = element_text(family= "mono"))
+```
+
+# Modeling
+
+## Pin trees
+
+Due to computational issues, we had to make this data areal and divided the data into 81 different regions of about equal size. Each region has between 1 and 106 trees, obviously depending on how densely the trees are populated in that region. We then fit a model that accounts for the spatial correlation of the trees using a GEE model. GEE provides robust SE's that are valid even if we specify the wrong correlation structure (which summarizes the correlation between trees in the same region). This means our standard errors will be valid and allow us to create valid confidence intervals and properly conduct hypothesis tests.
+
+In the pin model, elevation and diameter are both significant coefficients on the $\alpha = 0.001$ level. LOG(N) is insignificant with a p-value of 0.274. The elevation coefficient tells us that holding diameter and LOG(N) constant, we expect the odds of survival to decrease by a factor of 0.76 for every one unit increase in pin tree elevation. Additionally, for every one unit increase in pin tree diameter we expect the odds of pin tree survival to increase by a multiplicative factor of 1.024 holding elevation and LOG(N) constant.
+```{r, echo=TRUE}
+pin_survival$region <- paste0('X',cut(pin_survival$X,breaks=seq(20,420,length = 10)),'Y',cut(pin_survival$Y,breaks=seq(0,400,length = 10)))
+
+pinmod <- pin_survival %>%
+  arrange(region) %>%
+geeM::geem(survived ~ ELEVA + DBH95 + `LOG(N)`, family = binomial(),id = region, data = .,corstr='exchangeable') 
+
+summary(pinmod)
+
+pin_survival %>%
+  group_by(region) %>%
+  summarize(maxE = max(ELEVA), minE = min(ELEVA)) %>%
+  mutate(regiondif = maxE - minE) %>%
+  arrange(desc(regiondif))
+```
+
+## Bur trees 
+
+The same type of model can be used to model bur survival. Elevation and diameter are again both significant coefficients on the $\alpha = 0.001$ level. LOG(N) is insignificant with a p-value of 0.274. The elevation coefficient tells us that holding diameter and LOG(N) constant, we expect the odds of survival to decrease by a factor of 0.76 for every one unit increase in pin tree elevation. Additionally, for every one unit increase in pin tree diameter we expect the odds of pin tree survival to increase by a multiplicative factor of 1.024 holding elevation and LOG(N) constant.
+
 ```{r}
+bur_survival$region <- paste0('X',cut(bur_survival$X,breaks=seq(20,420,length = 10)),'Y',cut(bur_survival$Y,breaks=seq(0,400,length = 10)))
+
+bur_survival <- as.data.frame(bur_survival)
+
+burmod <- bur_survival %>%
+  arrange(region) %>%
+geeM::geem(survived ~ ELEVA + DBH95 + `LOG(N)`, family = binomial(),id = region, data = .,corstr='exchangeable') 
+summary(burmod)
+
+bur_survival %>% count(survived, cut(`LOG(N)`,3))
+```
+
+
+```{r, echo=FALSE}
 #pin_mod1 <- fitme(survived ~ cut(ELEVA,3) + DBH95 + Matern(1 | X+Y), fixed = list(nu = 0.5), family = binomial(), data=pin_survival,control.HLfit = list(algebra='decorr'))
 
 
