@@ -233,7 +233,7 @@ lm.model.map2 %>%
 Similar to the ordinary least squares model, for the spatial mixed-effects models I will create two models. One of the models will have elevation as a predictor and the other will have logged soil nitrogen levels. For both the models I will utilize a Matérn covariance matrix. The Matérn covariance matrix is a common method when computing spatial mix-effects models as it will allow us to calculate the Matérn covariance between two points separated by a distance, d. For both models, I will use an unset $\nu$ parameter to have the optimized values of $\nu$ and $\rho$ which produce the lowest residuals. For larger data sets, we could utilize a $\nu = 0.5$ to make our model more computationally efficient at the cost of accuracy. However, the bur tree data set is small enough where our model with an unset parameter should only take a few minutes to run. 
 
 #### Spatial Elevation Models
-
+ 
 ```{r}
 spa_bur_eleva_gaussian <- fitme(GROWTH ~ ELEVA + DBH1995 + Matern(1 | X + Y), data = trees %>% filter(type == 'bur'), family = "gaussian")
 
@@ -412,3 +412,9 @@ summary(spa_pin_n_gaussian)
 ```
 
 ## Conclusion
+
+Our two main questions were whether or not the elevation of a tree will affect growth while accounting for different tree diameters and whether or not the logged soil nitrogen levels affect a tree's grwoth accounting for each tree's starting diameter. We decide to draw our conclusion from the spatial models over the OLS models since we can consider spatial correlation and have better general fit to the data. 
+
+Elevation seems to have a negative statistically significant relationship with growth while controlling for tree diameter. This relationship is stronger among pin trees compared to bur trees. There is weak eveidence that soil nitrogen has an effect on growth while accounting for starting diameters. Among Pin trees, soil nitrogen has a weak relationship that is weakly statistically significant. Among Bur trees, soil nitrogen has a statistically insignificant relationship with growth. 
+
+
