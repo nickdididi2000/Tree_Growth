@@ -180,17 +180,11 @@ pinmod <- pin_survival %>%
 geeM::geem(survived ~ ELEVA + DBH95 + `LOG(N)`, family = binomial(),id = region, data = .,corstr='exchangeable') 
 
 summary(pinmod)
-
-pin_survival %>%
-  group_by(region) %>%
-  summarize(maxE = max(ELEVA), minE = min(ELEVA)) %>%
-  mutate(regiondif = maxE - minE) %>%
-  arrange(desc(regiondif))
 ```
 
 ## Bur trees 
 
-The same type of model can be used to model bur survival. Elevation and diameter are again both significant coefficients on the $\alpha = 0.001$ level. LOG(N) is insignificant with a p-value of 0.274. The elevation coefficient tells us that holding diameter and LOG(N) constant, we expect the odds of survival to decrease by a factor of 0.76 for every one unit increase in pin tree elevation. Additionally, for every one unit increase in pin tree diameter we expect the odds of pin tree survival to increase by a multiplicative factor of 1.024 holding elevation and LOG(N) constant.
+The same type of model can be used to model bur survival.
 
 ```{r}
 bur_survival$region <- paste0('X',cut(bur_survival$X,breaks=seq(20,420,length = 10)),'Y',cut(bur_survival$Y,breaks=seq(0,400,length = 10)))
