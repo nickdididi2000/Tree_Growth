@@ -97,6 +97,7 @@ trees %>% filter(GROWTH >= 0) %>%
   theme_classic() +
     theme(plot.title = element_text(hjust = 0.5)) 
 ```
+
 Across all exploratory visualizations, we find five bur and three pin trees with negative growth.
 
 
@@ -175,7 +176,7 @@ lm_pin_n <- lm(GROWTH ~ `LOG(N)` + DBH1995, data = trees %>% filter(type == 'pin
 
 summary(lm_pin_n)
 ```
-We'd expect the average pin tree to grow by 1.9 units for when soil nitrogen levels increase by a factor of 2.7 while holding the base diameter of a tree constant. Additionally, we'd expect the average tree to grow around 0.11 units for every 1 unit increase in base diameter of a tree while holding soil nitrogen levels constant. Also, all the coefficients are statistically significant, but the standard errors maybe invalid due to the spatial correlation of the observations.
+We'd expect the average pin tree to grow by 1.9 units for when soil nitrogen levels increase by a factor of 2.7 while holding the base diameter of a tree constant. Additionally, we'd expect the average tree to grow around 0.11 units for every 1 unit increase in base diameter of a tree while holding soil nitrogen levels constant. Also, all the coefficients are statistically significant, but the standard errors may be invalid due to the spatial correlation of the observations.
 
 ```{r include = FALSE}
 lm.model.map <- cbind(trees %>% filter(type == 'bur'), lm_bur_eleva_pred = predict(lm_bur_eleva)) %>%
@@ -413,8 +414,9 @@ summary(spa_pin_n_gaussian)
 
 ## Conclusion
 
-Our two main questions were whether or not the elevation of a tree will affect growth while accounting for different tree diameters and whether or not the logged soil nitrogen levels affect a tree's grwoth accounting for each tree's starting diameter. We decide to draw our conclusion from the spatial models over the OLS models since we can consider spatial correlation and have better general fit to the data. 
+We explored whether or not the elevation of a tree affects its growth while taking tree diameter into account. We also examined whether or not a tree's logged soil nitrogen levels affect its growth while taking tree diameter into account. When we utilized OLS models, all variables were statistically significant, but the standard errors may be invalid since the trees might be spatially correlated. So, we used a Spatial mixed-effects model to investigate the potential spatial correlation. After examining the residual maps, we found that no area was systematically under/over predicted. Therefore, our data is probably not spatially correlated. 
 
-Elevation seems to have a negative statistically significant relationship with growth while controlling for tree diameter. This relationship is stronger among pin trees compared to bur trees. There is weak eveidence that soil nitrogen has an effect on growth while accounting for starting diameters. Among Pin trees, soil nitrogen has a weak relationship that is weakly statistically significant. Among Bur trees, soil nitrogen has a statistically insignificant relationship with growth. 
+For bur and pin tress, we found that elevation has a negative relationship with growth when controlling for tree diameter. So, on average, when bur and pin trees are at a lower elevation, we expect their growth to be larger than trees at higher elevations. Additionally, we found that logged soil nitrogen levels have a positive relationship when controlling for tree diameter for bur and pin trees. So, for trees with higher soil nitrogen levels, we would expect to see more growth on average than trees with lower levels of soil nitrogen.  
+
 
 
