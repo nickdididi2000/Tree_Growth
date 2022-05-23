@@ -24,7 +24,7 @@ trees <- pin_growth %>% mutate(type = 'pin') %>% full_join(bur %>% mutate(type =
 
 ## Data Context & Research Question {-}
 
-We will examine two separate tree growth data sets with the same variables. Both data sets, bur and pin, contain a tree id number, location data, the initial diameter of the tree (measured at breast height), logged soil nitrogen levels, the elevation of the tree, and its growth over 25 years. We will investigate whether or not the elevation of a tree will affect its growth while taking into account different tree diameters. We will also run a similar analysis and see whether or not the logged soil nitrogen levels affect a tree's growth while taking each tree's starting diameter. Both analysis' will be run for the bur and pin dataset resulting in four total models. 
+We will examine two separate tree growth data sets with the same variables. Both data sets, bur and pin, contain a tree id number, location data, the initial diameter of the tree (measured at breast height), logged soil nitrogen levels, the elevation of the tree, and its growth over 25 years. We will investigate whether or not the elevation of a tree will affect its growth while taking into account tree diameter. We will also run a similar analysis and see whether or not the logged soil nitrogen levels affect a tree's growth while taking each tree diameter. We first run an ordinary least-squares and then a spatial mixed-effects model to check for spatial correlation among the trees.
 
 ## Visualizations {-}
 
@@ -133,9 +133,10 @@ grid.arrange(p1, p2, ncol = 2)
 
 ```
 
-We can see that the majority of trees have an trunk diameter between 5 and 20 units. Also, when looking at the logged soil nitrogen levels, we see just a few trees have high levels while the majority remain around 5.5 to 7.5, similar to what we saw from the soil nitrogen map above. The elevation of the trees looks relatively normal. 
+We can see that the majority of trees have a trunk diameter between 5 and 20 units. Also, when looking at the logged soil nitrogen levels, we see just a few trees have high levels while the majority remain around 5.5 to 7.5, similar to what we saw from the soil nitrogen map above. The elevation of the trees looks relatively normal. 
 
 ## Modeling {-}
+
 ### Linear Models {-}
 
 ```{r}
@@ -150,7 +151,7 @@ lm_bur_eleva <- lm(GROWTH ~ ELEVA + DBH1995, data = trees %>% filter(type == 'bu
 summary(lm_bur_eleva)
 ```
 
-Our first model, we will utilize ordinary least-squares to measure how elevation and the logged base diameter of a tree affect the trees growth of bur trees. The intercept does not make sense to interpret in the data context as a tree cannot have a base trunk diameter of zero. We'd expect the average tree to shrink 0.20 units for every 1 unit increase in elevation while holding the base diameter of a tree constant. Additionally, we'd expect the average tree to grow around 0.07 units for every 1 unit increase in base diameter of a tree while holding elevation constant. All the coefficients have statistically significant p-values, but the standard errors maybe invalid due to the spatial correlation of the observations. 
+For our first model, we will utilize ordinary least-squares to measure how elevation and the logged base diameter of a tree affect the trees growth of bur trees. The intercept does not make sense to interpret in the data context as a tree cannot have a base trunk diameter of zero. We'd expect the average tree to shrink 0.20 units for every 1 unit increase in elevation while holding the base diameter of a tree constant. Additionally, we'd expect the average tree to grow around 0.07 units for every 1 unit increase in base diameter of a tree while holding elevation constant. All the coefficients have statistically significant p-values, but the standard errors maybe invalid due to the spatial correlation of the observations. 
 
 
 ```{r}
@@ -167,8 +168,7 @@ lm_bur_n <- lm(GROWTH ~ `LOG(N)` + DBH1995, data = trees %>% filter(type == 'bur
 summary(lm_bur_n)
 ```
 
-In our second ordinary least squares model for bur trees, we measure how logged soil nitrogen levels and the base diameter of the trunk affect tree growth.  We'd expect the average tree to grow by 0.831 units for when soil nitrogen levels increase by a factor of 2.7 while holding the base diameter of a tree constant. Additionally, we'd expect the average tree to grow around 0.07 units for every 1 unit increase in base diameter of a tree while holding soil nitrogen levels constant. Also, all the coefficients are statistically significant, but the standard errors maybe invalid due to the spatial correlation of the observations.    
-
+In our second ordinary least squares model for bur trees, we measure how logged soil nitrogen levels and the base diameter of the trunk affect tree growth. We'd expect the average tree to grow by 0.831 units for when soil nitrogen levels increase by a factor of 2.7 while holding the base diameter of a tree constant. Additionally, we'd expect the average tree to grow around 0.07 units for every 1 unit increase in base diameter of a tree while holding soil nitrogen levels constant. Also, all the coefficients are statistically significant, but the standard errors maybe invalid due to the spatial correlation of the observations.    
 
 
 ```{r}
@@ -176,6 +176,7 @@ lm_pin_n <- lm(GROWTH ~ `LOG(N)` + DBH1995, data = trees %>% filter(type == 'pin
 
 summary(lm_pin_n)
 ```
+
 We'd expect the average pin tree to grow by 1.9 units for when soil nitrogen levels increase by a factor of 2.7 while holding the base diameter of a tree constant. Additionally, we'd expect the average tree to grow around 0.11 units for every 1 unit increase in base diameter of a tree while holding soil nitrogen levels constant. Also, all the coefficients are statistically significant, but the standard errors may be invalid due to the spatial correlation of the observations.
 
 ```{r include = FALSE}
@@ -231,7 +232,7 @@ lm.model.map2 %>%
 
 #### Quick Overview of spaMM Models
 
-Similar to the ordinary least squares model, for the spatial mixed-effects models I will create two models. One of the models will have elevation as a predictor and the other will have logged soil nitrogen levels. For both the models I will utilize a Matérn covariance matrix. The Matérn covariance matrix is a common method when computing spatial mix-effects models as it will allow us to calculate the Matérn covariance between two points separated by a distance, d. For both models, I will use an unset $\nu$ parameter to have the optimized values of $\nu$ and $\rho$ which produce the lowest residuals. For larger data sets, we could utilize a $\nu = 0.5$ to make our model more computationally efficient at the cost of accuracy. However, the bur tree data set is small enough where our model with an unset parameter should only take a few minutes to run. 
+Similar to the ordinary least squares model, for the spatial mixed-effects models we will create two models. One of the models will have elevation as a predictor and the other will have logged soil nitrogen levels. For both the models, we will utilize a Matérn covariance matrix. The Matérn covariance matrix is a common method when computing spatial mix-effects models as it will allow us to calculate the Matérn covariance between two points separated by a distance, d. For both models, I will use an unset $\nu$ parameter to have the optimized values of $\nu$ and $\rho$ which produce the lowest residuals. For larger data sets, we could utilize a $\nu = 0.5$ to make our model more computationally efficient at the cost of accuracy. However, the bur and pin tree data sets are small enough where our model with an unset parameter should only take a few minutes to run. 
 
 #### Spatial Elevation Models
  
