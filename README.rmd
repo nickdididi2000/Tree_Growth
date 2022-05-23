@@ -2,6 +2,9 @@
 title: "Tree growth modeling"
 author: "Alex McCreight, Nicholas Di"
 date: "May 2022"
+output:
+  html_document:
+    df_print: paged
 ---
 
 ```{r include = FALSE}
@@ -97,6 +100,7 @@ trees %>% filter(GROWTH >= 0) %>%
   theme_classic() +
     theme(plot.title = element_text(hjust = 0.5)) 
 ```
+
 Across all exploratory visualizations, we find five bur and three pin trees with negative growth.
 
 
@@ -234,13 +238,16 @@ Similar to the ordinary least squares model, for the spatial mixed-effects model
 
 #### Spatial Elevation Models
  
-```{r}
+```{r eval=FALSE}
 spa_bur_eleva_gaussian <- fitme(GROWTH ~ ELEVA + DBH1995 + Matern(1 | X + Y), data = trees %>% filter(type == 'bur'), family = "gaussian")
 
 spa_pin_eleva_gaussian <- fitme(GROWTH ~ ELEVA + DBH1995 + Matern(1 | X + Y), data = trees %>% filter(type == 'pin'), family = "gaussian")
+
+save(spa_bur_eleva_gaussian,spa_pin_eleva_gaussian, file = 'ElevationModels.RData')
 ```
 
 ```{r}
+load('ElevationModels.RData')
 spaMM.model.map <- cbind(trees %>% filter(type == 'bur'), spa_bur_eleva_gaussian_pred = predict(spa_bur_eleva_gaussian)) %>% 
     mutate(spa_bur_eleva_gaussian_resid = GROWTH - spa_bur_eleva_gaussian_pred)
 
@@ -256,13 +263,16 @@ sqrt(mean(spaMM.model.map2$spa_pin_eleva_gaussian_resid^2))
 
 #### Spatial Soil Nitrogen Models
 
-```{r}
+```{r eval=FALSE}
 spa_bur_n_gaussian <- fitme(GROWTH ~ `LOG(N)` + DBH1995 + Matern(1 | X + Y), data = trees %>% filter(type == 'bur'), family = "gaussian")
 
 spa_pin_n_gaussian <- fitme(GROWTH ~ `LOG(N)` + DBH1995 + Matern(1 | X + Y), data = trees %>% filter(type == 'pin'), family = "gaussian")
+
+save(spa_bur_n_gaussian,spa_pin_n_gaussian, file = 'NitroModels.RData')
 ```
 
 ```{r}
+load('NitroModels.RData')
 spaMM.model.map <- spaMM.model.map %>% mutate(spa_bur_n_gaussian_pred = as.numeric(predict(spa_bur_n_gaussian))) %>% 
     mutate(spa_bur_n_gaussian_resid = GROWTH - spa_bur_n_gaussian_pred)
 

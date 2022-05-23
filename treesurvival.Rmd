@@ -33,7 +33,25 @@ pin_survival <- pin_survival %>%
 
 ## Pin trees 
 
-There is a pretty strong negative relationship between elevation and survival for pin trees. It also appears that in more densely populated areas of pin trees, more trees die while in more sparsely populated regions more trees survive.  
+ It also appears that in more densely populated areas of pin trees, more trees die while in more sparsely populated regions more trees survive.  
+
+
+```{r, out.width='65%'}
+#These are density plots
+pin_survival %>% 
+    ggplot(aes(x=X, y=Y)) + 
+    geom_point(aes(color = as.factor(survived)), alpha = 0.3)+
+  scale_color_manual(values = c("darkred", "darkgreen"))+
+    theme_classic()+
+  labs(title = "Pin tree <strong><span style='color:darkgreen'>survival</span></strong></b> appears higher in more sparsely populated areas")+
+  theme(legend.position = "none",
+        plot.title.position = "plot", 
+        plot.title = element_markdown(family = "mono", size = 8), 
+        axis.text = element_text(family = "mono"), 
+        axis.title = element_text(family = "mono"))
+```
+
+There is a pretty strong negative relationship between elevation and survival for pin trees.
 
 ```{r, out.width='65%'}
 pin_survival %>%
@@ -50,21 +68,6 @@ pin_survival %>%
         axis.text.y = element_text(family= "mono"))
 ```
 
-```{r, out.width='65%'}
-#These are density plots rather than elevation
-pin_survival %>% 
-    ggplot(aes(x=X, y=Y, z=ELEVA)) + 
-  geom_contour(color = "black", lwd = 0.2) +
-    geom_point(aes(color = as.factor(survived)), alpha = 0.3)+
-  scale_color_manual(values = c("darkred", "darkgreen"))+
-    theme_classic()+
-  labs(title = "Pin tree <strong><span style='color:darkgreen'>survival</span></strong></b> appears higher in more sparsely populated areas")+
-  theme(legend.position = "none",
-        plot.title.position = "plot", 
-        plot.title = element_markdown(family = "mono", size = 8), 
-        axis.text = element_text(family = "mono"), 
-        axis.title = element_text(family = "mono"))
-```
 
 There is a positive moderate relationship between LOG(N) and pin tree survival, as well as diameter and pin tree survival. 
 
@@ -100,7 +103,23 @@ pin_survival %>%
 
 ## Bur trees 
 
-There is also a negative relationship between elevation and survival for bur trees, though it is not quite as strong as that for pin trees. Additionally, we do not see as strong of a pattern related to tree density and survival for bur trees as we do for pin trees. 
+In contrast to pin trees, we do not see as strong of a pattern related to tree density and survival for bur trees. 
+
+```{r, out.width='65%'}
+bur_survival %>% 
+    ggplot(aes(X, Y)) + 
+    geom_point(aes(color = as.factor(survived)), alpha = 0.3)+
+  scale_color_manual(values = c("darkred", "darkgreen"))+
+    theme_classic()+
+  labs(title = "Bur tree <strong><span style='color:darkgreen'>survival</span></strong></b> appears less dependent on tree density than pin tree survival")+
+  theme(legend.position = "none",
+        plot.title.position = "plot", 
+        plot.title = element_markdown(family = "mono", size = 8), 
+        axis.text = element_text(family = "mono"), 
+        axis.title = element_text(family = "mono"))
+```
+
+There is also a negative relationship between elevation and survival for bur trees, though it is not quite as strong as that for pin trees. 
 
 ```{r, out.width='65%'}
 bur_survival %>%
@@ -117,20 +136,7 @@ bur_survival %>%
         axis.text.y = element_text(family= "mono"))
 ```
 
-```{r, out.width='65%'}
-bur_survival %>% 
-    ggplot(aes(X, Y)) + 
-  geom_density2d(color = "black", lwd = 0.2) +
-    geom_point(aes(color = as.factor(survived)), alpha = 0.3)+
-  scale_color_manual(values = c("darkred", "darkgreen"))+
-    theme_classic()+
-  labs(title = "Bur tree <strong><span style='color:darkgreen'>survival</span></strong></b> appears less dependent on tree density than pin tree survival")+
-  theme(legend.position = "none",
-        plot.title.position = "plot", 
-        plot.title = element_markdown(family = "mono", size = 8), 
-        axis.text = element_text(family = "mono"), 
-        axis.title = element_text(family = "mono"))
-```
+
 
 There does not appear to be a distinct relationship between LOG(N) and bur tree survival. The relationship between diameter and bur tree survival looks somewhat quadratic, with survival being highest at medium diameters and much lower for skinnier or very large trees. 
 
@@ -170,14 +176,14 @@ bur_survival %>%
 
 Due to computational issues, we had to make this data areal and divided the data into 81 different regions of about equal size. Each region has between 1 and 106 trees, obviously depending on how densely the trees are populated in that region. We then fit a model that accounts for the spatial correlation of the trees using a GEE model. GEE provides robust SE's that are valid even if we specify the wrong correlation structure (which summarizes the correlation between trees in the same region). This means our standard errors will be valid and allow us to create valid confidence intervals and properly conduct hypothesis tests.
 
-In the pin model, elevation and diameter are both significant coefficients on the $\alpha = 0.001$ level. LOG(N) is insignificant with a p-value of 0.274. The elevation coefficient tells us that holding diameter and LOG(N) constant, we expect the odds of survival to decrease by a factor of 0.76 for every one unit increase in pin tree elevation. Additionally, for every one unit increase in pin tree diameter we expect the odds of pin tree survival to increase by a multiplicative factor of 1.024 holding elevation and LOG(N) constant.
+In the pin model, elevation and diameter are both significant coefficients on the $\alpha = 0.001$ level. LOG(N) is insignificant with a p-value of 0.88. The elevation coefficient tells us that holding diameter and LOG(N) constant, we expect the odds of survival to decrease by a multiplicative factor of exp(-0.52) = 0.6 for every one unit increase in pin tree elevation. Additionally, for every one unit increase in pin tree diameter we expect the odds of pin tree survival to increase by a multiplicative factor of exp(0.04) = 1.04 holding elevation and LOG(N) constant.
 
 ```{r, echo=TRUE}
 pin_survival$region <- paste0('X',cut(pin_survival$X,breaks=seq(20,420,length = 10)),'Y',cut(pin_survival$Y,breaks=seq(0,400,length = 10)))
 
 pinmod <- pin_survival %>%
   arrange(region) %>%
-geeM::geem(survived ~ ELEVA + DBH95 + `LOG(N)`, family = binomial(),id = region, data = .,corstr='exchangeable') 
+geeM::geem(survived ~ ELEVA + DBH95 + `LOG(N)`, family = binomial(),id = region, data = .,corstr='independence') 
 
 summary(pinmod)
 ```
@@ -186,21 +192,21 @@ summary(pinmod)
 
 The same type of model can be used to model bur survival.
 
+For bur trees, elevation and diameter are both significant coefficients on the $\alpha = 0.01$ level. LOG(N) is insignificant with a p-value of 0.22. The elevation coefficient tells us that holding diameter and LOG(N) constant, we expect the odds of survival to decrease by a multiplicative factor of exp(-0.186) = 0.8 for every one unit increase in bur tree elevation. Additionally, for every one unit increase in bur tree diameter we expect the odds of pin tree survival to increase by a multiplicative factor of exp(0.15) = 1.16 holding elevation and LOG(N) constant.
+
 ```{r}
-bur_survival$region <- paste0('X',cut(bur_survival$X,breaks=seq(20,420,length = 10)),'Y',cut(bur_survival$Y,breaks=seq(0,400,length = 10)))
+bur_survival$region <- paste0('X',cut(bur_survival$X,breaks=seq(20,420,length = 7)),'Y',cut(bur_survival$Y,breaks=seq(0,400,length = 7)))
 
 bur_survival <- as.data.frame(bur_survival)
 
 burmod <- bur_survival %>%
   arrange(region) %>%
-geeM::geem(survived ~ ELEVA + DBH95 + `LOG(N)`, family = binomial(),id = region, data = .,corstr='exchangeable') 
+geeM::geem(survived ~ ELEVA + DBH95 + `LOG(N)`, family = binomial(),id = region, data = .,corstr='independence') 
 summary(burmod)
-
-bur_survival %>% count(survived, cut(`LOG(N)`,3))
 ```
 
 
-```{r, echo=FALSE}
+```{r, echo=FALSE,include=FALSE}
 #pin_mod1 <- fitme(survived ~ cut(ELEVA,3) + DBH95 + Matern(1 | X+Y), fixed = list(nu = 0.5), family = binomial(), data=pin_survival,control.HLfit = list(algebra='decorr'))
 
 
